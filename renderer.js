@@ -30,6 +30,13 @@ const likeBtn = document.getElementById('likeBtn');
 const subscribeBtn = document.getElementById('subscribeBtn');
 const addToPlaylistBtn = document.getElementById('addToPlaylistBtn');
 
+// Shorts elements
+const shortsViewer = document.getElementById('shortsViewer');
+const shortsContainer = document.getElementById('shortsContainer');
+const shortsCloseBtn = document.getElementById('shortsCloseBtn');
+let shortsData = [];
+let currentShortIndex = 0;
+
 // Tab elements
 const tabs = document.querySelectorAll('.tab');
 const tabPanels = document.querySelectorAll('.tab-panel');
@@ -142,6 +149,14 @@ addToPlaylistBtn.addEventListener('click', () => {
   } else {
     showNotification('Already in Watch Later');
   }
+});
+
+// Shorts close button
+shortsCloseBtn.addEventListener('click', () => {
+  shortsViewer.classList.add('hidden');
+  resultsContainer.classList.remove('hidden');
+  // Pause all Short videos
+  document.querySelectorAll('.short-video').forEach(v => v.pause());
 });
 
 // Navigation
@@ -301,31 +316,38 @@ async function loadComments(videoId) {
 
 async function switchView(view) {
   currentView = view;
-  resultsContainer.classList.remove('hidden');
-  videoPlayer.classList.add('hidden');
-  resultsGrid.innerHTML = '';
 
-  showLoading();
+  if (view === 'shorts') {
+    // Hide regular content and show Shorts viewer
+    resultsContainer.classList.add('hidden');
+    videoPlayer.classList.add('hidden');
+    shortsViewer.classList.remove('hidden');
+    await loadShorts();
+  } else {
+    // Hide Shorts viewer and show regular content
+    shortsViewer.classList.add('hidden');
+    resultsContainer.classList.remove('hidden');
+    videoPlayer.classList.add('hidden');
+    resultsGrid.innerHTML = '';
 
-  if (view === 'home') {
-    await loadSmartHomeFeed();
-  } else if (view === 'trending') {
-    sectionTitle.textContent = 'Trending Now';
-    const trendingResults = await loadTrendingContent();
-    displayResults(trendingResults);
-  } else if (view === 'subscriptions') {
-    await loadSubscriptions();
-  } else if (view === 'history') {
-    await loadHistory();
-  } else if (view === 'playlists') {
-    await loadPlaylists();
-  } else if (view === 'shorts') {
-    sectionTitle.textContent = 'Shorts';
-    searchInput.value = 'youtube shorts';
-    await performSearch();
+    showLoading();
+
+    if (view === 'home') {
+      await loadSmartHomeFeed();
+    } else if (view === 'trending') {
+      sectionTitle.textContent = 'Trending Now';
+      const trendingResults = await loadTrendingContent();
+      displayResults(trendingResults);
+    } else if (view === 'subscriptions') {
+      await loadSubscriptions();
+    } else if (view === 'history') {
+      await loadHistory();
+    } else if (view === 'playlists') {
+      await loadPlaylists();
+    }
+
+    hideLoading();
   }
-
-  hideLoading();
 }
 
 // Smart algorithm for personalized home feed
@@ -611,6 +633,135 @@ function formatDuration(seconds) {
     return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   }
   return `${minutes}:${String(secs).padStart(2, '0')}`;
+}
+
+// Shorts functionality
+async function loadShorts() {
+  showLoading();
+  try {
+    // Search for Shorts
+    const results = await window.api.searchVideos('youtube shorts');
+    shortsData = results.filter(item => item.type === 'shorts' || (item.length && item.length.simpleText && parseInt(item.length.simpleText) < 60));
+
+    if (shortsData.length === 0) {
+      shortsData = results.slice(0, 20); // Fallback to first 20 results
+    }
+
+    displayShorts();
+    hideLoading();
+  } catch (error) {
+    console.error('Error loading Shorts:', error);
+    hideLoading();
+    showNotification('Failed to load Shorts', 'error');
+  }
+}
+
+async function displayShorts() {
+  shortsContainer.innerHTML = '';
+
+  for (let i = 0; i < Math.min(shortsData.length, 20); i++) {
+    const short = shortsData[i];
+    const shortItem = document.createElement('div');
+    shortItem.className = 'short-item';
+    shortItem.dataset.index = i;
+
+    shortItem.innerHTML = `
+      <video class="short-video"
+             data-video-id="${short.id}"
+             playsinline
+             loop
+             muted>
+      </video>
+      <div class="short-loading">Loading...</div>
+      <div class="short-info">
+        <div class="short-title">${escapeHtml(short.title)}</div>
+        <div class="short-uploader">${escapeHtml(short.channelTitle || 'YouTube')}</div>
+      </div>
+      <div class="short-actions">
+        <button class="short-action-btn short-like-btn">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+          </svg>
+        </button>
+        <button class="short-action-btn short-share-btn">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
+            <polyline points="16 6 12 2 8 6"></polyline>
+            <line x1="12" y1="2" x2="12" y2="15"></line>
+          </svg>
+        </button>
+      </div>
+    `;
+
+    shortsContainer.appendChild(shortItem);
+  }
+
+  // Set up scroll detection
+  setupShortsScrollDetection();
+
+  // Load first video
+  if (shortsData.length > 0) {
+    loadShortVideo(0);
+  }
+}
+
+async function loadShortVideo(index) {
+  const shortItem = shortsContainer.querySelector(`.short-item[data-index="${index}"]`);
+  if (!shortItem) return;
+
+  const video = shortItem.querySelector('.short-video');
+  const loadingEl = shortItem.querySelector('.short-loading');
+  const videoId = video.dataset.videoId;
+
+  if (video.src) {
+    // Already loaded
+    video.play().catch(e => console.log('Play error:', e));
+    return;
+  }
+
+  try {
+    loadingEl.style.display = 'block';
+    const videoData = await window.api.getVideoUrl(videoId);
+    video.src = videoData.url;
+    loadingEl.style.display = 'none';
+
+    // Unmute on user interaction
+    video.addEventListener('click', () => {
+      video.muted = false;
+    }, { once: true });
+
+    video.play().catch(e => console.log('Play error:', e));
+  } catch (error) {
+    console.error('Error loading Short video:', error);
+    loadingEl.textContent = 'Failed to load';
+  }
+}
+
+function setupShortsScrollDetection() {
+  let isScrolling;
+
+  shortsContainer.addEventListener('scroll', () => {
+    clearTimeout(isScrolling);
+
+    isScrolling = setTimeout(() => {
+      const scrollTop = shortsContainer.scrollTop;
+      const viewportHeight = shortsContainer.clientHeight;
+      const currentIndex = Math.round(scrollTop / viewportHeight);
+
+      // Pause all videos
+      document.querySelectorAll('.short-video').forEach(v => v.pause());
+
+      // Load and play current video
+      loadShortVideo(currentIndex);
+
+      // Preload next video
+      if (currentIndex + 1 < shortsData.length) {
+        loadShortVideo(currentIndex + 1);
+      }
+
+      currentShortIndex = currentIndex;
+    }, 100);
+  });
 }
 
 // Initialize app
