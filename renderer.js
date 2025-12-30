@@ -286,7 +286,8 @@ async function playVideo(videoId, videoInfo) {
     addToHistory(currentVideo);
   } catch (error) {
     console.error('Play error:', error);
-    showNotification('Failed to load video. Please try again.', 'error');
+    const errorMsg = error.message || 'Failed to load video. Please try again.';
+    showNotification(errorMsg, 'error');
     backBtn.click();
   }
 

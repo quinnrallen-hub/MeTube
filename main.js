@@ -52,23 +52,57 @@ ipcMain.handle('get-video-url', async (event, videoId) => {
   try {
     const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
-    // Get video info with options to avoid blocks
+    console.log('Fetching video:', videoId);
+
+    // Get video info with comprehensive options
     const info = await ytdl.getInfo(videoUrl, {
       requestOptions: {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept-Language': 'en-US,en;q=0.9'
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
         }
       }
     });
 
-    // Get best format with both audio and video
-    const formats = info.formats.filter(f => f.hasVideo && f.hasAudio);
-    const format = formats.length > 0
-      ? ytdl.chooseFormat(formats, { quality: 'highest' })
-      : ytdl.chooseFormat(info.formats, { quality: 'highest' });
+    console.log('Video info fetched, total formats:', info.formats.length);
 
-    console.log('Video format selected:', format.qualityLabel, format.container);
+    // Try multiple format selection strategies
+    let format = null;
+
+    // Strategy 1: Try to get format with both audio and video
+    const combinedFormats = info.formats.filter(f => f.hasVideo && f.hasAudio && !f.isLive);
+    if (combinedFormats.length > 0) {
+      format = combinedFormats.sort((a, b) => (b.qualityLabel?.replace('p', '') || 0) - (a.qualityLabel?.replace('p', '') || 0))[0];
+      console.log('Using combined format:', format.qualityLabel || format.itag);
+    }
+
+    // Strategy 2: Try highest quality available
+    if (!format) {
+      format = ytdl.chooseFormat(info.formats, { quality: 'highest' });
+      console.log('Using highest quality format:', format.qualityLabel || format.itag);
+    }
+
+    // Strategy 3: Try any video format
+    if (!format || !format.url) {
+      const videoFormats = info.formats.filter(f => f.hasVideo && f.url);
+      if (videoFormats.length > 0) {
+        format = videoFormats[0];
+        console.log('Using fallback video format:', format.qualityLabel || format.itag);
+      }
+    }
+
+    if (!format || !format.url) {
+      throw new Error('No playable format found');
+    }
+
+    console.log('Selected format:', {
+      itag: format.itag,
+      quality: format.qualityLabel,
+      container: format.container,
+      hasAudio: format.hasAudio,
+      hasVideo: format.hasVideo
+    });
 
     return {
       url: format.url,
@@ -79,8 +113,9 @@ ipcMain.handle('get-video-url', async (event, videoId) => {
       description: info.videoDetails.description
     };
   } catch (error) {
-    console.error('Video URL error:', error);
-    throw error;
+    console.error('Video URL error:', error.message);
+    console.error('Full error:', error);
+    throw new Error(`Failed to load video: ${error.message}`);
   }
 });
 
