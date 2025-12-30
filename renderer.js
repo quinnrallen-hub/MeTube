@@ -34,8 +34,10 @@ const addToPlaylistBtn = document.getElementById('addToPlaylistBtn');
 const shortsViewer = document.getElementById('shortsViewer');
 const shortsContainer = document.getElementById('shortsContainer');
 const shortsCloseBtn = document.getElementById('shortsCloseBtn');
+const volumeToggle = document.getElementById('volumeToggle');
 let shortsData = [];
 let currentShortIndex = 0;
+let isMuted = true;
 
 // Tab elements
 const tabs = document.querySelectorAll('.tab');
@@ -157,7 +159,81 @@ shortsCloseBtn.addEventListener('click', () => {
   resultsContainer.classList.remove('hidden');
   // Pause all Short videos
   document.querySelectorAll('.short-video').forEach(v => v.pause());
+  // Remove keyboard listener
+  document.removeEventListener('keydown', handleShortsKeyboard);
 });
+
+// Volume toggle
+volumeToggle.addEventListener('click', () => {
+  isMuted = !isMuted;
+  const currentVideo = document.querySelector(`.short-item[data-index="${currentShortIndex}"] .short-video`);
+  if (currentVideo) {
+    currentVideo.muted = isMuted;
+  }
+  updateVolumeIcon();
+});
+
+// Keyboard navigation for Shorts
+function handleShortsKeyboard(e) {
+  if (!shortsViewer.classList.contains('hidden')) {
+    const currentVideo = document.querySelector(`.short-item[data-index="${currentShortIndex}"] .short-video`);
+
+    switch(e.key) {
+      case 'ArrowUp':
+        e.preventDefault();
+        navigateShort('up');
+        break;
+      case 'ArrowDown':
+        e.preventDefault();
+        navigateShort('down');
+        break;
+      case ' ':
+        e.preventDefault();
+        if (currentVideo) {
+          if (currentVideo.paused) {
+            currentVideo.play();
+          } else {
+            currentVideo.pause();
+          }
+        }
+        break;
+      case 'm':
+      case 'M':
+        e.preventDefault();
+        volumeToggle.click();
+        break;
+      case 'Escape':
+        shortsCloseBtn.click();
+        break;
+    }
+  }
+}
+
+function navigateShort(direction) {
+  const newIndex = direction === 'up'
+    ? Math.max(0, currentShortIndex - 1)
+    : Math.min(shortsData.length - 1, currentShortIndex + 1);
+
+  if (newIndex !== currentShortIndex) {
+    shortsContainer.scrollTo({
+      top: newIndex * shortsContainer.clientHeight,
+      behavior: 'smooth'
+    });
+  }
+}
+
+function updateVolumeIcon() {
+  const volumeOn = volumeToggle.querySelector('.volume-on');
+  const volumeOff = volumeToggle.querySelector('.volume-off');
+
+  if (isMuted) {
+    volumeOn.classList.add('hidden');
+    volumeOff.classList.remove('hidden');
+  } else {
+    volumeOn.classList.remove('hidden');
+    volumeOff.classList.add('hidden');
+  }
+}
 
 // Navigation
 document.querySelectorAll('.nav-item').forEach(item => {
@@ -639,15 +715,39 @@ function formatDuration(seconds) {
 async function loadShorts() {
   showLoading();
   try {
-    // Search for Shorts
-    const results = await window.api.searchVideos('youtube shorts');
-    shortsData = results.filter(item => item.type === 'shorts' || (item.length && item.length.simpleText && parseInt(item.length.simpleText) < 60));
+    // Search for Shorts with multiple queries for better results
+    const queries = ['#shorts', 'youtube shorts', 'viral shorts'];
+    let allResults = [];
+
+    for (const query of queries) {
+      const results = await window.api.searchVideos(query);
+      allResults = allResults.concat(results);
+      if (allResults.length >= 30) break;
+    }
+
+    // Filter for short videos (under 60 seconds)
+    shortsData = allResults.filter(item =>
+      item.type === 'shorts' ||
+      item.type === 'video' && (
+        item.length && item.length.simpleText &&
+        (item.length.simpleText.split(':').length === 2 &&
+         parseInt(item.length.simpleText.split(':')[0]) === 0 &&
+         parseInt(item.length.simpleText.split(':')[1]) < 60)
+      )
+    );
+
+    // Remove duplicates
+    shortsData = shortsData.filter((item, index, self) =>
+      index === self.findIndex(t => t.id === item.id)
+    );
 
     if (shortsData.length === 0) {
-      shortsData = results.slice(0, 20); // Fallback to first 20 results
+      shortsData = allResults.slice(0, 20); // Fallback
     }
 
     displayShorts();
+    // Enable keyboard navigation
+    document.addEventListener('keydown', handleShortsKeyboard);
     hideLoading();
   } catch (error) {
     console.error('Error loading Shorts:', error);
@@ -669,21 +769,23 @@ async function displayShorts() {
       <video class="short-video"
              data-video-id="${short.id}"
              playsinline
-             loop
-             muted>
+             loop>
       </video>
       <div class="short-loading">Loading...</div>
+      <div class="short-progress">
+        <div class="short-progress-bar"></div>
+      </div>
       <div class="short-info">
         <div class="short-title">${escapeHtml(short.title)}</div>
         <div class="short-uploader">${escapeHtml(short.channelTitle || 'YouTube')}</div>
       </div>
       <div class="short-actions">
-        <button class="short-action-btn short-like-btn">
+        <button class="short-action-btn short-like-btn" title="Like">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
           </svg>
         </button>
-        <button class="short-action-btn short-share-btn">
+        <button class="short-action-btn short-share-btn" title="Share">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
             <polyline points="16 6 12 2 8 6"></polyline>
@@ -711,10 +813,16 @@ async function loadShortVideo(index) {
 
   const video = shortItem.querySelector('.short-video');
   const loadingEl = shortItem.querySelector('.short-loading');
+  const progressBar = shortItem.querySelector('.short-progress-bar');
   const videoId = video.dataset.videoId;
+
+  // Mark as active
+  document.querySelectorAll('.short-item').forEach(item => item.classList.remove('active'));
+  shortItem.classList.add('active');
 
   if (video.src) {
     // Already loaded
+    video.muted = isMuted;
     video.play().catch(e => console.log('Play error:', e));
     return;
   }
@@ -723,17 +831,36 @@ async function loadShortVideo(index) {
     loadingEl.style.display = 'block';
     const videoData = await window.api.getVideoUrl(videoId);
     video.src = videoData.url;
+    video.muted = isMuted;
     loadingEl.style.display = 'none';
 
-    // Unmute on user interaction
-    video.addEventListener('click', () => {
-      video.muted = false;
-    }, { once: true });
+    // Update progress bar
+    video.addEventListener('timeupdate', () => {
+      const progress = (video.currentTime / video.duration) * 100;
+      progressBar.style.width = `${progress}%`;
+    });
 
-    video.play().catch(e => console.log('Play error:', e));
+    // Click to toggle mute
+    video.addEventListener('click', () => {
+      isMuted = !isMuted;
+      video.muted = isMuted;
+      updateVolumeIcon();
+    });
+
+    // Auto-play
+    await video.play().catch(e => {
+      console.log('Play error:', e);
+      loadingEl.textContent = 'Click to play';
+    });
   } catch (error) {
     console.error('Error loading Short video:', error);
-    loadingEl.textContent = 'Failed to load';
+    loadingEl.textContent = 'Failed to load - Try next';
+    loadingEl.style.cursor = 'pointer';
+    loadingEl.onclick = () => {
+      if (index + 1 < shortsData.length) {
+        navigateShort('down');
+      }
+    };
   }
 }
 

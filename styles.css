@@ -903,3 +903,88 @@ video {
   color: white;
   font-size: 14px;
 }
+
+/* Shorts controls */
+.shorts-controls {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1001;
+  display: flex;
+  gap: 12px;
+}
+
+.volume-toggle {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  border: none;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.volume-toggle:hover {
+  background: rgba(0, 0, 0, 0.8);
+  transform: scale(1.1);
+}
+
+.volume-toggle svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Shorts hint */
+.shorts-hint {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1001;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  opacity: 0;
+  animation: fadeInOut 4s ease-in-out;
+}
+
+@keyframes fadeInOut {
+  0%, 100% { opacity: 0; }
+  10%, 90% { opacity: 1; }
+}
+
+/* Video progress bar */
+.short-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.3);
+  z-index: 10;
+}
+
+.short-progress-bar {
+  height: 100%;
+  background: #ff0000;
+  width: 0%;
+  transition: width 0.1s linear;
+}
+
+/* Improved video container */
+.short-video {
+  cursor: pointer;
+}
+
+.short-item.active {
+  z-index: 1;
+}
