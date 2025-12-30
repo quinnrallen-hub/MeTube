@@ -39,6 +39,21 @@ let shortsData = [];
 let currentShortIndex = 0;
 let isMuted = true;
 
+// Home page elements
+const categoryChips = document.getElementById('categoryChips');
+const loadingSkeletons = document.getElementById('loadingSkeletons');
+const categories = [
+  { name: 'All', query: '' },
+  { name: 'Music', query: 'music' },
+  { name: 'Gaming', query: 'gaming' },
+  { name: 'News', query: 'news' },
+  { name: 'Sports', query: 'sports' },
+  { name: 'Education', query: 'education' },
+  { name: 'Entertainment', query: 'entertainment' },
+  { name: 'Technology', query: 'technology' }
+];
+let activeCategory = 'All';
+
 // Tab elements
 const tabs = document.querySelectorAll('.tab');
 const tabPanels = document.querySelectorAll('.tab-panel');
@@ -409,17 +424,25 @@ async function switchView(view) {
     showLoading();
 
     if (view === 'home') {
+      displayCategoryChips();
       await loadSmartHomeFeed();
-    } else if (view === 'trending') {
-      sectionTitle.textContent = 'Trending Now';
-      const trendingResults = await loadTrendingContent();
-      displayResults(trendingResults);
-    } else if (view === 'subscriptions') {
-      await loadSubscriptions();
-    } else if (view === 'history') {
-      await loadHistory();
-    } else if (view === 'playlists') {
-      await loadPlaylists();
+    } else {
+      // Hide category chips on other pages
+      if (categoryChips) {
+        categoryChips.classList.add('hidden');
+      }
+
+      if (view === 'trending') {
+        sectionTitle.textContent = 'Trending Now';
+        const trendingResults = await loadTrendingContent();
+        displayResults(trendingResults);
+      } else if (view === 'subscriptions') {
+        await loadSubscriptions();
+      } else if (view === 'history') {
+        await loadHistory();
+      } else if (view === 'playlists') {
+        await loadPlaylists();
+      }
     }
 
     hideLoading();
@@ -683,10 +706,53 @@ function loadPlaylistsData() {
 
 function showLoading() {
   loading.classList.remove('hidden');
+  if (loadingSkeletons) {
+    resultsGrid.classList.add('hidden');
+    loadingSkeletons.classList.remove('hidden');
+  }
 }
 
 function hideLoading() {
   loading.classList.add('hidden');
+  if (loadingSkeletons) {
+    loadingSkeletons.classList.add('hidden');
+    resultsGrid.classList.remove('hidden');
+  }
+}
+
+// Category chip functions
+function displayCategoryChips() {
+  if (!categoryChips) return;
+
+  categoryChips.innerHTML = '';
+  categoryChips.classList.remove('hidden');
+
+  categories.forEach(category => {
+    const chip = document.createElement('button');
+    chip.className = `category-chip ${category.name === activeCategory ? 'active' : ''}`;
+    chip.textContent = category.name;
+    chip.addEventListener('click', () => selectCategory(category.name));
+    categoryChips.appendChild(chip);
+  });
+}
+
+async function selectCategory(categoryName) {
+  activeCategory = categoryName;
+  displayCategoryChips();
+
+  const category = categories.find(c => c.name === categoryName);
+  if (!category) return;
+
+  showLoading();
+
+  if (category.name === 'All') {
+    await loadSmartHomeFeed();
+  } else {
+    const results = await window.api.searchVideos(category.query);
+    displayResults(results.filter(item => item.type === 'video' || item.type === 'shorts'));
+  }
+
+  hideLoading();
 }
 
 function showNotification(message, type = 'success') {
