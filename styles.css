@@ -1042,23 +1042,45 @@ video {
   border-color: var(--text-primary);
 }
 
-/* Loading Skeletons */
+/* Loading Skeletons - Optimized */
 .skeleton {
   pointer-events: none;
+  will-change: auto;
+}
+
+.skeleton-thumbnail,
+.skeleton-title,
+.skeleton-channel,
+.skeleton-metadata {
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
 }
 
 .skeleton-thumbnail {
   width: 100%;
   aspect-ratio: 16 / 9;
+  border-radius: 12px;
+}
+
+.skeleton-thumbnail::after,
+.skeleton-title::after,
+.skeleton-channel::after,
+.skeleton-metadata::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  height: 100%;
+  width: 100%;
   background: linear-gradient(
     90deg,
-    var(--bg-tertiary) 0%,
-    var(--bg-secondary) 50%,
-    var(--bg-tertiary) 100%
+    transparent,
+    rgba(255, 255, 255, 0.05),
+    transparent
   );
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: 12px;
+  animation: shimmer 2s infinite;
 }
 
 .skeleton-info {
@@ -1066,20 +1088,6 @@ video {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.skeleton-title,
-.skeleton-channel,
-.skeleton-metadata {
-  background: linear-gradient(
-    90deg,
-    var(--bg-tertiary) 0%,
-    var(--bg-secondary) 50%,
-    var(--bg-tertiary) 100%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: 4px;
 }
 
 .skeleton-title {
@@ -1098,11 +1106,8 @@ video {
 }
 
 @keyframes shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
+  to {
+    left: 100%;
   }
 }
 

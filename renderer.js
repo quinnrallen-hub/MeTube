@@ -449,36 +449,15 @@ async function switchView(view) {
   }
 }
 
-// Smart algorithm for personalized home feed
+// Smart algorithm for personalized home feed - Optimized
 async function loadSmartHomeFeed() {
   sectionTitle.textContent = 'For You';
 
   loadWatchHistory();
 
-  let allResults = [];
-
-  if (watchHistory.length > 0) {
-    // Personalized recommendations based on watch history
-    const recommendations = await getPersonalizedRecommendations();
-    allResults = recommendations;
-  }
-
-  // Mix in trending content
+  // Just load trending for speed - users can use categories for personalization
   const trending = await loadTrendingContent();
-
-  // Merge: 60% personalized, 40% trending
-  const personalizedCount = Math.floor(allResults.length * 0.6);
-  const trendingCount = Math.floor(trending.length * 0.4);
-
-  const mixed = [
-    ...allResults.slice(0, personalizedCount),
-    ...trending.slice(0, trendingCount)
-  ];
-
-  // Shuffle to make it feel more natural
-  const shuffled = shuffleArray(mixed);
-
-  displayResults(shuffled);
+  displayResults(trending.slice(0, 12)); // Limit to 12 videos for speed
 }
 
 async function getPersonalizedRecommendations() {
@@ -749,7 +728,8 @@ async function selectCategory(categoryName) {
     await loadSmartHomeFeed();
   } else {
     const results = await window.api.searchVideos(category.query);
-    displayResults(results.filter(item => item.type === 'video' || item.type === 'shorts'));
+    const filtered = results.filter(item => item.type === 'video' || item.type === 'shorts');
+    displayResults(filtered.slice(0, 12)); // Limit to 12 videos for speed
   }
 
   hideLoading();
@@ -777,22 +757,15 @@ function formatDuration(seconds) {
   return `${minutes}:${String(secs).padStart(2, '0')}`;
 }
 
-// Shorts functionality
+// Shorts functionality - Optimized
 async function loadShorts() {
   showLoading();
   try {
-    // Search for Shorts with multiple queries for better results
-    const queries = ['#shorts', 'youtube shorts', 'viral shorts'];
-    let allResults = [];
-
-    for (const query of queries) {
-      const results = await window.api.searchVideos(query);
-      allResults = allResults.concat(results);
-      if (allResults.length >= 30) break;
-    }
+    // Single search for speed
+    const results = await window.api.searchVideos('#shorts');
 
     // Filter for short videos (under 60 seconds)
-    shortsData = allResults.filter(item =>
+    shortsData = results.filter(item =>
       item.type === 'shorts' ||
       item.type === 'video' && (
         item.length && item.length.simpleText &&
@@ -800,15 +773,10 @@ async function loadShorts() {
          parseInt(item.length.simpleText.split(':')[0]) === 0 &&
          parseInt(item.length.simpleText.split(':')[1]) < 60)
       )
-    );
-
-    // Remove duplicates
-    shortsData = shortsData.filter((item, index, self) =>
-      index === self.findIndex(t => t.id === item.id)
-    );
+    ).slice(0, 15); // Limit to 15 shorts for speed
 
     if (shortsData.length === 0) {
-      shortsData = allResults.slice(0, 20); // Fallback
+      shortsData = results.slice(0, 15); // Fallback
     }
 
     displayShorts();
