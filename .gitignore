@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.AppImage
+*.deb
+*.rpm
+*.snap
+*.dmg
+*.exe
+*.zip
+
+# Electron
+out/
+build/
+
+# System files
+.DS_Store
+Thumbs.db
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+
+# Debug
+builder-debug.yml
+*.cache
