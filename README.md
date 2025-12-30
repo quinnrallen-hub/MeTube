@@ -1,19 +1,52 @@
-# YouTube Ad-Free Client
+# MeTube - Better YouTube
 
-A desktop application for watching YouTube videos without ads. Built with Electron and Node.js.
+A full-featured desktop YouTube client with no ads, enhanced privacy, and better features. Built with Electron and Node.js.
 
 ## Features
 
-- **Ad-Free Video Playback** - Watch YouTube videos without any advertisements
-- **Search & Browse** - Search for videos and browse content easily
-- **YouTube Shorts Support** - Watch Shorts content in a dedicated view
-- **Subscriptions** - Subscribe to your favorite channels (stored locally)
-- **Download Videos** - Download videos directly to your Downloads folder
-- **Clean Interface** - YouTube-inspired dark theme interface
+### Video Playback
+- **100% Ad-Free** - No advertisements, ever
+- **Picture-in-Picture Mode** - Watch while working
+- **Quality Selector** - Choose your preferred video quality
+- **Full Player Controls** - Play, pause, seek, volume, fullscreen
+
+### Content Discovery
+- **Smart Search** - Find any video quickly
+- **Trending Section** - See what's popular
+- **YouTube Shorts** - Dedicated Shorts viewer
+- **Home Feed** - Popular and recommended videos
+
+### Personalization
+- **Watch History** - Track all watched videos
+- **Playlists** - Create and manage playlists (Watch Later)
+- **Subscriptions** - Follow your favorite channels
+- **Like Videos** - Save your favorites
+- **Light/Dark Theme** - Toggle between themes
+
+### Privacy & Data
+- **All Data Stored Locally** - Complete privacy
+- **No Account Required** - Use YouTube without logging in
+- **No Tracking** - Zero telemetry or analytics
+
+### Advanced Features
+- **Video Downloads** - Save videos for offline viewing
+- **Tabbed Interface** - Description and comments tabs
+- **Modern UI** - Clean, YouTube-inspired design
+- **Keyboard Shortcuts** - Efficient navigation
 
 ## Installation
 
-### One-Line Install (Easiest)
+### Arch Linux (AUR)
+
+Install from the AUR using your favorite AUR helper:
+
+```bash
+yay -S metube-git
+# or
+paru -S metube-git
+```
+
+### One-Line Install (Any Linux)
 
 Install MeTube with a single command:
 
@@ -25,7 +58,7 @@ This will automatically:
 - Download the source code
 - Install dependencies
 - Build the application
-- Install to your system
+- Install to your system (creates `metube` command)
 - Create a desktop shortcut
 
 After installation, launch **MeTube** from your application menu or run `metube` in the terminal.
