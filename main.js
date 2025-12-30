@@ -56,8 +56,9 @@ ipcMain.handle('get-video-url', async (event, videoId) => {
     console.log('Fetching video:', videoId);
 
     // Use yt-dlp to get video info and URL
+    // -f 18 = 360p MP4 with audio+video combined (most compatible)
     const { stdout } = await execAsync(
-      `yt-dlp -f "best[ext=mp4]/best" --get-url --get-title --get-thumbnail --get-duration --get-description "${videoUrl}"`,
+      `yt-dlp -f "18/best[ext=mp4][vcodec!=none][acodec!=none]/best" --get-title --get-url --get-thumbnail --get-duration --get-description "${videoUrl}"`,
       { maxBuffer: 1024 * 1024 * 10 }
     );
 
@@ -72,6 +73,7 @@ ipcMain.handle('get-video-url', async (event, videoId) => {
     const description = descriptionLines.join('\n');
 
     console.log('Video fetched successfully:', title);
+    console.log('Video URL:', url);
 
     return {
       url: url.trim(),
