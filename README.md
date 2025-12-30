@@ -13,9 +13,26 @@ A desktop application for watching YouTube videos without ads. Built with Electr
 
 ## Installation
 
-### Quick Install (Linux)
+### One-Line Install (Easiest)
 
-If you just want to use the app without building from source:
+Install MeTube with a single command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/quinnrallen-hub/MeTube/main/quick-install.sh | bash
+```
+
+This will automatically:
+- Download the source code
+- Install dependencies
+- Build the application
+- Install to your system
+- Create a desktop shortcut
+
+After installation, launch **MeTube** from your application menu or run `metube` in the terminal.
+
+### Manual Install (Linux)
+
+If you prefer to install manually:
 
 ```bash
 # 1. Clone the repository
