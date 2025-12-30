@@ -59,11 +59,9 @@
     }
   },
   "dependencies": {
-    "@distube/yt-dlp": "^2.0.1",
     "@distube/ytdl-core": "^4.16.12",
     "electron-store": "^11.0.2",
-    "youtube-search-api": "^2.0.1",
-    "ytdl-core": "^4.11.5"
+    "youtube-search-api": "^2.0.1"
   },
   "devDependencies": {
     "electron": "^39.2.7",
