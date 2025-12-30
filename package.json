@@ -13,10 +13,11 @@
     "build": "electron-builder",
     "build:linux": "electron-builder --linux",
     "build:win": "electron-builder --win",
-    "build:mac": "electron-builder --mac"
+    "build:mac": "electron-builder --mac",
+    "install-app": "./install.sh",
+    "uninstall-app": "./uninstall.sh"
   },
   "keywords": ["youtube", "electron", "ad-free"],
-  "author": "",
   "license": "MIT",
   "type": "commonjs",
   "build": {
