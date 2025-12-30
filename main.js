@@ -1,9 +1,11 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const Store = require('electron-store').default;
-const ytdl = require('@distube/ytdl-core');
+const { exec } = require('child_process');
+const { promisify } = require('util');
 const ytsr = require('youtube-search-api');
 
+const execAsync = promisify(exec);
 const store = new Store();
 
 let mainWindow;
@@ -51,66 +53,33 @@ ipcMain.handle('search-videos', async (event, query) => {
 ipcMain.handle('get-video-url', async (event, videoId) => {
   try {
     const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-
     console.log('Fetching video:', videoId);
 
-    // Get video info with comprehensive options
-    const info = await ytdl.getInfo(videoUrl, {
-      requestOptions: {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept-Language': 'en-US,en;q=0.9',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-        }
-      }
-    });
+    // Use yt-dlp to get video info and URL
+    const { stdout } = await execAsync(
+      `yt-dlp -f "best[ext=mp4]/best" --get-url --get-title --get-thumbnail --get-duration --get-description "${videoUrl}"`,
+      { maxBuffer: 1024 * 1024 * 10 }
+    );
 
-    console.log('Video info fetched, total formats:', info.formats.length);
+    const lines = stdout.trim().split('\n');
 
-    // Try multiple format selection strategies
-    let format = null;
-
-    // Strategy 1: Try to get format with both audio and video
-    const combinedFormats = info.formats.filter(f => f.hasVideo && f.hasAudio && !f.isLive);
-    if (combinedFormats.length > 0) {
-      format = combinedFormats.sort((a, b) => (b.qualityLabel?.replace('p', '') || 0) - (a.qualityLabel?.replace('p', '') || 0))[0];
-      console.log('Using combined format:', format.qualityLabel || format.itag);
+    if (lines.length < 2) {
+      throw new Error('Invalid response from yt-dlp');
     }
 
-    // Strategy 2: Try highest quality available
-    if (!format) {
-      format = ytdl.chooseFormat(info.formats, { quality: 'highest' });
-      console.log('Using highest quality format:', format.qualityLabel || format.itag);
-    }
+    // yt-dlp output format: title, url, thumbnail, duration, description
+    const [title, url, thumbnail = '', duration = '0', ...descriptionLines] = lines;
+    const description = descriptionLines.join('\n');
 
-    // Strategy 3: Try any video format
-    if (!format || !format.url) {
-      const videoFormats = info.formats.filter(f => f.hasVideo && f.url);
-      if (videoFormats.length > 0) {
-        format = videoFormats[0];
-        console.log('Using fallback video format:', format.qualityLabel || format.itag);
-      }
-    }
-
-    if (!format || !format.url) {
-      throw new Error('No playable format found');
-    }
-
-    console.log('Selected format:', {
-      itag: format.itag,
-      quality: format.qualityLabel,
-      container: format.container,
-      hasAudio: format.hasAudio,
-      hasVideo: format.hasVideo
-    });
+    console.log('Video fetched successfully:', title);
 
     return {
-      url: format.url,
-      title: info.videoDetails.title,
-      thumbnail: info.videoDetails.thumbnails[0]?.url,
-      duration: info.videoDetails.lengthSeconds,
-      uploader: info.videoDetails.author.name,
-      description: info.videoDetails.description
+      url: url.trim(),
+      title: title.trim(),
+      thumbnail: thumbnail.trim(),
+      duration: duration.trim(),
+      uploader: 'YouTube',
+      description: description.trim()
     };
   } catch (error) {
     console.error('Video URL error:', error.message);
@@ -122,40 +91,19 @@ ipcMain.handle('get-video-url', async (event, videoId) => {
 ipcMain.handle('download-video', async (event, videoId, quality = 'best') => {
   try {
     const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    const info = await ytdl.getInfo(videoUrl, {
-      requestOptions: {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        }
-      }
-    });
-    const fs = require('fs');
 
-    const sanitizedTitle = info.videoDetails.title.replace(/[/\\?%*:|"<>]/g, '-');
+    // Get video title first
+    const { stdout: titleOutput } = await execAsync(`yt-dlp --get-title "${videoUrl}"`);
+    const sanitizedTitle = titleOutput.trim().replace(/[/\\?%*:|"<>]/g, '-');
     const outputPath = path.join(app.getPath('downloads'), `${sanitizedTitle}.mp4`);
 
-    return new Promise((resolve, reject) => {
-      const stream = ytdl(videoUrl, {
-        quality: 'highestvideo',
-        filter: 'audioandvideo',
-        requestOptions: {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-          }
-        }
-      });
+    // Download video using yt-dlp
+    await execAsync(
+      `yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" -o "${outputPath}" "${videoUrl}"`,
+      { maxBuffer: 1024 * 1024 * 100 }
+    );
 
-      stream.pipe(fs.createWriteStream(outputPath));
-
-      stream.on('finish', () => {
-        resolve({ success: true, path: outputPath });
-      });
-
-      stream.on('error', (error) => {
-        console.error('Download stream error:', error);
-        reject({ success: false, error: error.message });
-      });
-    });
+    return { success: true, path: outputPath };
   } catch (error) {
     console.error('Download error:', error);
     return { success: false, error: error.message };
