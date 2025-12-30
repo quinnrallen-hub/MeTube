@@ -18,7 +18,11 @@
     "install-app": "./install.sh",
     "uninstall-app": "./uninstall.sh"
   },
-  "keywords": ["youtube", "electron", "ad-free"],
+  "keywords": [
+    "youtube",
+    "electron",
+    "ad-free"
+  ],
   "license": "MIT",
   "type": "commonjs",
   "build": {
@@ -36,18 +40,27 @@
       "node_modules/**/*"
     ],
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "Video"
     },
     "win": {
-      "target": ["nsis", "portable"]
+      "target": [
+        "nsis",
+        "portable"
+      ]
     },
     "mac": {
-      "target": ["dmg"]
+      "target": [
+        "dmg"
+      ]
     }
   },
   "dependencies": {
     "@distube/yt-dlp": "^2.0.1",
+    "@distube/ytdl-core": "^4.16.12",
     "electron-store": "^11.0.2",
     "youtube-search-api": "^2.0.1",
     "ytdl-core": "^4.11.5"

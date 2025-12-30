@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const Store = require('electron-store').default;
-const ytdl = require('ytdl-core');
+const ytdl = require('@distube/ytdl-core');
 const ytsr = require('youtube-search-api');
 
 const store = new Store();
@@ -52,18 +52,31 @@ ipcMain.handle('get-video-url', async (event, videoId) => {
   try {
     const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
-    // Get video info
-    const info = await ytdl.getInfo(videoUrl);
+    // Get video info with options to avoid blocks
+    const info = await ytdl.getInfo(videoUrl, {
+      requestOptions: {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9'
+        }
+      }
+    });
 
-    // Get best format (combined audio+video or best video)
-    const format = ytdl.chooseFormat(info.formats, { quality: 'highest' });
+    // Get best format with both audio and video
+    const formats = info.formats.filter(f => f.hasVideo && f.hasAudio);
+    const format = formats.length > 0
+      ? ytdl.chooseFormat(formats, { quality: 'highest' })
+      : ytdl.chooseFormat(info.formats, { quality: 'highest' });
+
+    console.log('Video format selected:', format.qualityLabel, format.container);
 
     return {
       url: format.url,
       title: info.videoDetails.title,
       thumbnail: info.videoDetails.thumbnails[0]?.url,
       duration: info.videoDetails.lengthSeconds,
-      uploader: info.videoDetails.author.name
+      uploader: info.videoDetails.author.name,
+      description: info.videoDetails.description
     };
   } catch (error) {
     console.error('Video URL error:', error);
@@ -74,21 +87,37 @@ ipcMain.handle('get-video-url', async (event, videoId) => {
 ipcMain.handle('download-video', async (event, videoId, quality = 'best') => {
   try {
     const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    const info = await ytdl.getInfo(videoUrl);
+    const info = await ytdl.getInfo(videoUrl, {
+      requestOptions: {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+      }
+    });
     const fs = require('fs');
 
     const sanitizedTitle = info.videoDetails.title.replace(/[/\\?%*:|"<>]/g, '-');
     const outputPath = path.join(app.getPath('downloads'), `${sanitizedTitle}.mp4`);
 
     return new Promise((resolve, reject) => {
-      const stream = ytdl(videoUrl, { quality: 'highest' });
+      const stream = ytdl(videoUrl, {
+        quality: 'highestvideo',
+        filter: 'audioandvideo',
+        requestOptions: {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          }
+        }
+      });
+
       stream.pipe(fs.createWriteStream(outputPath));
 
-      stream.on('end', () => {
+      stream.on('finish', () => {
         resolve({ success: true, path: outputPath });
       });
 
       stream.on('error', (error) => {
+        console.error('Download stream error:', error);
         reject({ success: false, error: error.message });
       });
     });
