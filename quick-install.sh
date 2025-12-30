@@ -57,9 +57,9 @@ git clone --depth 1 https://github.com/quinnrallen-hub/MeTube.git .
 echo -e "${BLUE}Installing dependencies...${NC}"
 npm install --silent
 
-# Build application
+# Build application (AppImage only - faster and more reliable)
 echo -e "${BLUE}Building application (this may take a minute)...${NC}"
-npm run build:linux
+npx electron-builder --linux AppImage
 
 # Check if build succeeded
 if [ ! -f "dist/YouTube Ad-Free-1.0.0.AppImage" ]; then

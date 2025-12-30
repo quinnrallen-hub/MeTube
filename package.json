@@ -12,6 +12,7 @@
     "start": "electron .",
     "build": "electron-builder",
     "build:linux": "electron-builder --linux",
+    "build:appimage": "electron-builder --linux AppImage",
     "build:win": "electron-builder --win",
     "build:mac": "electron-builder --mac",
     "install-app": "./install.sh",
