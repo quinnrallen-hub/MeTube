@@ -220,6 +220,10 @@ function createVideoCard(item) {
   const duration = item.length?.simpleText || item.lengthText || '';
   const videoId = item.id;
 
+  // Extract views and publish date
+  const views = item.viewCount?.text || item.viewCountText || '';
+  const publishedTime = item.publishedTimeText || item.publishTime || '';
+
   card.innerHTML = `
     <div class="thumbnail-container ${isShort ? 'short-thumbnail' : ''}">
       <img src="${thumbnail}" alt="${title}" class="thumbnail" loading="lazy">
@@ -229,6 +233,11 @@ function createVideoCard(item) {
     <div class="video-info-card">
       <h3 class="video-title-card">${escapeHtml(title)}</h3>
       <p class="channel-name">${escapeHtml(channelName)}</p>
+      <div class="video-metadata">
+        ${views ? `<span class="views">${views}</span>` : ''}
+        ${views && publishedTime ? '<span class="separator">•</span>' : ''}
+        ${publishedTime ? `<span class="published-time">${publishedTime}</span>` : ''}
+      </div>
     </div>
   `;
 
@@ -298,13 +307,11 @@ async function switchView(view) {
   showLoading();
 
   if (view === 'home') {
-    sectionTitle.textContent = 'Home';
-    searchInput.value = 'popular videos 2025';
-    await performSearch();
+    await loadSmartHomeFeed();
   } else if (view === 'trending') {
-    sectionTitle.textContent = 'Trending';
-    searchInput.value = 'trending videos 2025';
-    await performSearch();
+    sectionTitle.textContent = 'Trending Now';
+    const trendingResults = await loadTrendingContent();
+    displayResults(trendingResults);
   } else if (view === 'subscriptions') {
     await loadSubscriptions();
   } else if (view === 'history') {
@@ -318,6 +325,140 @@ async function switchView(view) {
   }
 
   hideLoading();
+}
+
+// Smart algorithm for personalized home feed
+async function loadSmartHomeFeed() {
+  sectionTitle.textContent = 'For You';
+
+  loadWatchHistory();
+
+  let allResults = [];
+
+  if (watchHistory.length > 0) {
+    // Personalized recommendations based on watch history
+    const recommendations = await getPersonalizedRecommendations();
+    allResults = recommendations;
+  }
+
+  // Mix in trending content
+  const trending = await loadTrendingContent();
+
+  // Merge: 60% personalized, 40% trending
+  const personalizedCount = Math.floor(allResults.length * 0.6);
+  const trendingCount = Math.floor(trending.length * 0.4);
+
+  const mixed = [
+    ...allResults.slice(0, personalizedCount),
+    ...trending.slice(0, trendingCount)
+  ];
+
+  // Shuffle to make it feel more natural
+  const shuffled = shuffleArray(mixed);
+
+  displayResults(shuffled);
+}
+
+async function getPersonalizedRecommendations() {
+  // Extract keywords from watch history
+  const keywords = extractKeywordsFromHistory();
+
+  if (keywords.length === 0) {
+    // No history yet, show popular content
+    return await loadTrendingContent();
+  }
+
+  // Search for videos based on user's interests
+  const allResults = [];
+
+  for (const keyword of keywords.slice(0, 3)) {
+    try {
+      const results = await window.api.searchVideos(keyword);
+      allResults.push(...results.slice(0, 5));
+    } catch (error) {
+      console.error('Error fetching recommendations:', error);
+    }
+  }
+
+  // Remove duplicates
+  const uniqueResults = [];
+  const seenIds = new Set();
+
+  for (const result of allResults) {
+    if (!seenIds.has(result.id)) {
+      seenIds.add(result.id);
+      uniqueResults.push(result);
+    }
+  }
+
+  return uniqueResults;
+}
+
+function extractKeywordsFromHistory() {
+  loadWatchHistory();
+
+  if (watchHistory.length === 0) return [];
+
+  // Extract important words from video titles
+  const wordFrequency = {};
+  const stopWords = new Set([
+    'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+    'of', 'with', 'by', 'from', 'up', 'about', 'into', 'through', 'during',
+    'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had',
+    'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might',
+    'must', 'can', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she',
+    'it', 'we', 'they', 'what', 'which', 'who', 'when', 'where', 'why', 'how',
+    'video', 'videos', '2024', '2025', 'youtube', 'new', 'best', 'top'
+  ]);
+
+  watchHistory.forEach(video => {
+    const title = video.title.toLowerCase();
+    const words = title.split(/\W+/).filter(word =>
+      word.length > 3 && !stopWords.has(word) && !/^\d+$/.test(word)
+    );
+
+    words.forEach(word => {
+      wordFrequency[word] = (wordFrequency[word] || 0) + 1;
+    });
+  });
+
+  // Sort by frequency and get top keywords
+  const sortedKeywords = Object.entries(wordFrequency)
+    .sort((a, b) => b[1] - a[1])
+    .map(([word]) => word)
+    .slice(0, 5);
+
+  return sortedKeywords;
+}
+
+async function loadTrendingContent() {
+  const categories = [
+    'trending now',
+    'viral videos',
+    'top videos today',
+    'popular videos',
+    'most viewed today'
+  ];
+
+  // Pick a random category to keep it fresh
+  const randomCategory = categories[Math.floor(Math.random() * categories.length)];
+
+  try {
+    const results = await window.api.searchVideos(randomCategory);
+    return results || [];
+  } catch (error) {
+    console.error('Error loading trending:', error);
+    return [];
+  }
+}
+
+function shuffleArray(array) {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
 }
 
 async function loadSubscriptions() {
@@ -488,8 +629,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Load subscriptions from electron-store
   subscriptions = await window.api.getSubscriptions();
 
-  // Load initial content
-  sectionTitle.textContent = 'Popular Videos';
-  searchInput.value = 'popular videos 2025';
-  await performSearch();
+  // Load smart home feed with personalized recommendations
+  await loadSmartHomeFeed();
 });
