@@ -673,6 +673,36 @@ body {
   font-weight: 500;
 }
 
+/* Load More Button */
+.load-more-container {
+  display: flex;
+  justify-content: center;
+  padding: 2rem;
+  width: 100%;
+}
+
+.load-more-btn {
+  padding: 12px 32px;
+  background: var(--button-bg);
+  color: var(--text-primary);
+  border: 2px solid var(--border-color);
+  border-radius: 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.load-more-btn:hover {
+  background: var(--button-hover);
+  border-color: var(--accent-color);
+  transform: translateY(-2px);
+}
+
+.load-more-btn:active {
+  transform: translateY(0);
+}
+
 /* Load More Indicator */
 .load-more-indicator {
   grid-column: 1 / -1;

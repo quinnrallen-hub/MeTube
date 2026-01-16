@@ -51,6 +51,8 @@ const likeBtn = document.getElementById('likeBtn');
 const subscribeBtn = document.getElementById('subscribeBtn');
 const addToPlaylistBtn = document.getElementById('addToPlaylistBtn');
 const videoLoadingOverlay = document.getElementById('videoLoadingOverlay');
+const loadMoreBtn = document.getElementById('loadMoreBtn');
+const loadMoreContainer = document.getElementById('loadMoreContainer');
 
 // Shorts elements
 const shortsViewer = document.getElementById('shortsViewer');
@@ -81,6 +83,14 @@ searchBtn.addEventListener('click', performSearch);
 searchInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') performSearch();
 });
+
+// Load More button click
+if (loadMoreBtn) {
+  loadMoreBtn.addEventListener('click', () => {
+    console.log('Load More button clicked');
+    loadMoreResults();
+  });
+}
 
 // Infinite scroll listener
 resultsContainer.addEventListener('scroll', () => {
@@ -521,9 +531,21 @@ async function performSearch() {
     });
     sectionTitle.textContent = `Search results for "${query}"`;
     displayResults(searchResults);
+
+    // Show Load More button if there are more results
+    if (loadMoreContainer) {
+      if (nextPageToken) {
+        loadMoreContainer.classList.remove('hidden');
+      } else {
+        loadMoreContainer.classList.add('hidden');
+      }
+    }
   } catch (error) {
     console.error('Search error:', error);
     resultsGrid.innerHTML = '<p class="error">Search failed. Please try again.</p>';
+    if (loadMoreContainer) {
+      loadMoreContainer.classList.add('hidden');
+    }
   }
 
   hideLoading();
@@ -550,13 +572,28 @@ async function loadMoreResults() {
       appendResults(response.items);
       nextPageToken = response.nextPage;
       console.log(`Loaded ${response.items.length} more videos. New token:`, nextPageToken);
+
+      // Update button visibility
+      if (loadMoreContainer) {
+        if (nextPageToken) {
+          loadMoreContainer.classList.remove('hidden');
+        } else {
+          loadMoreContainer.classList.add('hidden');
+        }
+      }
     } else {
       nextPageToken = null;
       console.log('No more results');
+      if (loadMoreContainer) {
+        loadMoreContainer.classList.add('hidden');
+      }
     }
   } catch (error) {
     console.error('Load more error:', error);
     nextPageToken = null;
+    if (loadMoreContainer) {
+      loadMoreContainer.classList.add('hidden');
+    }
   }
 
   isLoadingMore = false;
