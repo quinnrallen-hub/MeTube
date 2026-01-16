@@ -545,7 +545,7 @@ function createVideoCard(item) {
     </div>
     <div class="video-info-card">
       <h3 class="video-title-card">${escapeHtml(title)}</h3>
-      <p class="channel-name">${escapeHtml(channelName)}</p>
+      <p class="channel-name" data-channel-id="${escapeHtml(item.channelId || '')}" data-channel-name="${escapeHtml(channelName)}">${escapeHtml(channelName)}</p>
       <div class="video-metadata">
         ${views ? `<span class="views">${escapeHtml(views)}</span>` : ''}
         ${views && publishedTime ? '<span class="separator">•</span>' : ''}
@@ -554,7 +554,22 @@ function createVideoCard(item) {
     </div>
   `;
 
-  card.addEventListener('click', () => playVideo(videoId, item));
+  // Click video thumbnail/title to play
+  const thumbnailContainer = card.querySelector('.thumbnail-container');
+  const videoTitleEl = card.querySelector('.video-title-card');
+
+  thumbnailContainer.addEventListener('click', () => playVideo(videoId, item));
+  videoTitleEl.addEventListener('click', () => playVideo(videoId, item));
+
+  // Click channel name to view channel
+  const channelNameEl = card.querySelector('.channel-name');
+  channelNameEl.style.cursor = 'pointer';
+  channelNameEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const channelId = channelNameEl.dataset.channelId || channelName;
+    const channelNameText = channelNameEl.dataset.channelName;
+    viewChannel(channelId, channelNameText);
+  });
 
   return card;
 }
@@ -591,6 +606,13 @@ async function playVideo(videoId, videoInfo) {
     videoElement.src = videoData.url;
     videoTitle.textContent = videoData.title;
     videoUploader.textContent = videoData.uploader;
+
+    // Make channel name clickable
+    videoUploader.style.cursor = 'pointer';
+    videoUploader.onclick = () => {
+      const channelId = currentVideo.channelId || currentVideo.uploader;
+      viewChannel(channelId, currentVideo.uploader);
+    };
 
     // Resume from saved progress if available
     const savedProgress = videoProgress[videoId];
@@ -656,6 +678,40 @@ async function playVideo(videoId, videoInfo) {
 }
 
 // Comments removed - not supported in this version
+
+async function viewChannel(channelId, channelName) {
+  showLoading();
+
+  try {
+    // Search for videos from this channel
+    const channelQuery = channelName || channelId;
+    const results = await window.api.searchVideos(channelQuery);
+
+    // Filter to show only videos from this channel (best effort)
+    const channelVideos = results.filter(video => {
+      const videoChannelName = video.channelTitle || video.channelName || '';
+      return videoChannelName.toLowerCase().includes(channelQuery.toLowerCase());
+    });
+
+    // Show channel page
+    videoPlayer.classList.add('hidden');
+    resultsContainer.classList.remove('hidden');
+    sectionTitle.textContent = `${channelName || channelId}`;
+
+    if (channelVideos.length === 0) {
+      resultsGrid.innerHTML = `<p class="no-results">No videos found for this channel. Showing related results...</p>`;
+      displayResults(results);
+    } else {
+      displayResults(channelVideos);
+    }
+  } catch (error) {
+    console.error('Channel view error:', error);
+    showNotification('Failed to load channel', 'error');
+    resultsGrid.innerHTML = '<p class="error">Failed to load channel. Please try again.</p>';
+  }
+
+  hideLoading();
+}
 
 async function switchView(view) {
   currentView = view;

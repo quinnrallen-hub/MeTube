@@ -34,3 +34,4 @@ Thumbs.db
 # Debug
 builder-debug.yml
 *.cache
+*-player-script.js
