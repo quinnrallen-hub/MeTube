@@ -86,10 +86,7 @@ searchInput.addEventListener('keypress', (e) => {
 
 // Load More button click
 if (loadMoreBtn) {
-  loadMoreBtn.addEventListener('click', () => {
-    console.log('Load More button clicked');
-    loadMoreResults();
-  });
+  loadMoreBtn.addEventListener('click', loadMoreResults);
 }
 
 // Infinite scroll listener - listen on the correct scrolling element!
@@ -108,13 +105,9 @@ if (contentArea) {
 
       // Trigger when scrolled 70% or within 800px of bottom
       if ((scrollPercentage > 70 || distanceFromBottom < 800) && nextPageToken && !isLoadingMore) {
-        console.log('Auto-loading more videos...', {
-          scrollPercentage: scrollPercentage.toFixed(1) + '%',
-          distanceFromBottom: distanceFromBottom + 'px'
-        });
         loadMoreResults();
       }
-    }, 50); // Faster debounce
+    }, 150); // Debounce for smooth scrolling
   });
 } else {
   console.error('Content area not found for scroll listener!');
@@ -540,11 +533,6 @@ async function performSearch() {
     const response = await window.api.searchVideos(query, 50);
     searchResults = response.items || [];
     nextPageToken = response.nextPage;
-    console.log('Search complete:', {
-      resultCount: searchResults.length,
-      hasNextPage: !!nextPageToken,
-      nextPageToken: nextPageToken
-    });
     sectionTitle.textContent = `Search results for "${query}"`;
     displayResults(searchResults);
 
@@ -569,11 +557,7 @@ async function performSearch() {
 
 // Load more results when scrolling or clicking button
 async function loadMoreResults() {
-  console.log('loadMoreResults called', {isLoadingMore, nextPageToken});
-  if (isLoadingMore || !nextPageToken) {
-    console.log('Skipping load - already loading or no token');
-    return;
-  }
+  if (isLoadingMore || !nextPageToken) return;
 
   isLoadingMore = true;
 
@@ -582,17 +566,14 @@ async function loadMoreResults() {
     loadMoreContainer.classList.add('hidden');
   }
   showLoadMoreIndicator();
-  console.log('Fetching next page...');
 
   try {
     const response = await window.api.loadNextPage(nextPageToken);
-    console.log('Got response:', response);
 
     if (response.items && response.items.length > 0) {
       searchResults = [...searchResults, ...response.items];
       appendResults(response.items);
       nextPageToken = response.nextPage;
-      console.log(`Loaded ${response.items.length} more videos. New token:`, nextPageToken);
 
       // Show button again if there are more results
       if (loadMoreContainer && nextPageToken) {
@@ -600,7 +581,6 @@ async function loadMoreResults() {
       }
     } else {
       nextPageToken = null;
-      console.log('No more results');
     }
   } catch (error) {
     console.error('Load more error:', error);
