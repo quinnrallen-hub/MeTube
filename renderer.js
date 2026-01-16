@@ -92,16 +92,21 @@ if (loadMoreBtn) {
   });
 }
 
-// Infinite scroll listener
+// Infinite scroll listener with debouncing
+let scrollTimeout;
 resultsContainer.addEventListener('scroll', () => {
-  const { scrollTop, scrollHeight, clientHeight } = resultsContainer;
+  clearTimeout(scrollTimeout);
+  scrollTimeout = setTimeout(() => {
+    const { scrollTop, scrollHeight, clientHeight } = resultsContainer;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
 
-  // Load more when user is 300px from bottom
-  // Only works for search results (when we have a search query and nextPageToken)
-  if (scrollHeight - scrollTop - clientHeight < 300 && currentSearchQuery && nextPageToken) {
-    console.log('Triggering infinite scroll load...');
-    loadMoreResults();
-  }
+    // Load more when user is 500px from bottom
+    // Only works for search results (when we have a search query and nextPageToken)
+    if (distanceFromBottom < 500 && currentSearchQuery && nextPageToken && !isLoadingMore) {
+      console.log('Triggering infinite scroll load...', {distanceFromBottom});
+      loadMoreResults();
+    }
+  }, 100); // Debounce by 100ms
 });
 
 backBtn.addEventListener('click', () => {
@@ -551,7 +556,7 @@ async function performSearch() {
   hideLoading();
 }
 
-// Load more results when scrolling
+// Load more results when scrolling or clicking button
 async function loadMoreResults() {
   console.log('loadMoreResults called', {isLoadingMore, nextPageToken});
   if (isLoadingMore || !nextPageToken) {
@@ -560,6 +565,11 @@ async function loadMoreResults() {
   }
 
   isLoadingMore = true;
+
+  // Hide button and show loading indicator
+  if (loadMoreContainer) {
+    loadMoreContainer.classList.add('hidden');
+  }
   showLoadMoreIndicator();
   console.log('Fetching next page...');
 
@@ -573,31 +583,26 @@ async function loadMoreResults() {
       nextPageToken = response.nextPage;
       console.log(`Loaded ${response.items.length} more videos. New token:`, nextPageToken);
 
-      // Update button visibility
-      if (loadMoreContainer) {
-        if (nextPageToken) {
-          loadMoreContainer.classList.remove('hidden');
-        } else {
-          loadMoreContainer.classList.add('hidden');
-        }
+      // Show button again if there are more results
+      if (loadMoreContainer && nextPageToken) {
+        loadMoreContainer.classList.remove('hidden');
       }
     } else {
       nextPageToken = null;
       console.log('No more results');
-      if (loadMoreContainer) {
-        loadMoreContainer.classList.add('hidden');
-      }
     }
   } catch (error) {
     console.error('Load more error:', error);
     nextPageToken = null;
-    if (loadMoreContainer) {
-      loadMoreContainer.classList.add('hidden');
-    }
   }
 
   isLoadingMore = false;
   hideLoadMoreIndicator();
+
+  // Show button again if there are still more results
+  if (loadMoreContainer && nextPageToken) {
+    loadMoreContainer.classList.remove('hidden');
+  }
 }
 
 function displayResults(results) {
