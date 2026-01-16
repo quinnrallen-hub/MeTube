@@ -79,7 +79,7 @@ function sanitizeFilename(filename) {
 }
 
 // IPC Handlers
-ipcMain.handle('search-videos', async (event, query) => {
+ipcMain.handle('search-videos', async (event, query, limit = 50) => {
   try {
     // Validate input
     if (!validateSearchQuery(query)) {
@@ -87,7 +87,7 @@ ipcMain.handle('search-videos', async (event, query) => {
       return [];
     }
 
-    const results = await ytsr.GetListByKeyword(query, false, 20);
+    const results = await ytsr.GetListByKeyword(query, false, limit);
     return results.items.filter(item => item.type === 'video' || item.type === 'shorts');
   } catch (error) {
     console.error('Search error:', error);

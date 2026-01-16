@@ -8,6 +8,12 @@ let watchHistory = [];
 let likedVideos = new Set();
 let theme = 'dark';
 
+// Infinite scroll state
+let currentSearchQuery = '';
+let currentPage = 1;
+let isLoadingMore = false;
+let hasMoreResults = true;
+
 // Request cancellation for video loading
 let currentVideoRequest = null;
 
@@ -75,6 +81,16 @@ let activeCategory = 'All';
 searchBtn.addEventListener('click', performSearch);
 searchInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') performSearch();
+});
+
+// Infinite scroll listener
+resultsContainer.addEventListener('scroll', () => {
+  const { scrollTop, scrollHeight, clientHeight } = resultsContainer;
+
+  // Load more when user is 300px from bottom
+  if (scrollHeight - scrollTop - clientHeight < 300) {
+    loadMoreResults();
+  }
 });
 
 backBtn.addEventListener('click', () => {
@@ -484,20 +500,53 @@ async function performSearch() {
   const query = searchInput.value.trim();
   if (!query) return;
 
+  // Reset pagination state for new search
+  currentSearchQuery = query;
+  currentPage = 1;
+  hasMoreResults = true;
+  searchResults = [];
+
   showLoading();
   resultsContainer.classList.remove('hidden');
   videoPlayer.classList.add('hidden');
 
   try {
-    searchResults = await window.api.searchVideos(query);
+    const results = await window.api.searchVideos(query, 50);
+    searchResults = results;
     sectionTitle.textContent = `Search results for "${query}"`;
     displayResults(searchResults);
+    currentPage++;
   } catch (error) {
     console.error('Search error:', error);
     resultsGrid.innerHTML = '<p class="error">Search failed. Please try again.</p>';
   }
 
   hideLoading();
+}
+
+// Load more results when scrolling
+async function loadMoreResults() {
+  if (isLoadingMore || !hasMoreResults || !currentSearchQuery) return;
+
+  isLoadingMore = true;
+  showLoadMoreIndicator();
+
+  try {
+    const moreResults = await window.api.searchVideos(currentSearchQuery, 30);
+
+    if (moreResults && moreResults.length > 0) {
+      searchResults = [...searchResults, ...moreResults];
+      appendResults(moreResults);
+      currentPage++;
+    } else {
+      hasMoreResults = false;
+    }
+  } catch (error) {
+    console.error('Load more error:', error);
+  }
+
+  isLoadingMore = false;
+  hideLoadMoreIndicator();
 }
 
 function displayResults(results) {
@@ -507,6 +556,15 @@ function displayResults(results) {
     resultsGrid.innerHTML = '<p class="no-results">No results found</p>';
     return;
   }
+
+  results.forEach(item => {
+    const videoCard = createVideoCard(item);
+    resultsGrid.appendChild(videoCard);
+  });
+}
+
+function appendResults(results) {
+  if (!results || results.length === 0) return;
 
   results.forEach(item => {
     const videoCard = createVideoCard(item);
@@ -1045,6 +1103,25 @@ function hideLoading() {
   if (loadingSkeletons) {
     loadingSkeletons.classList.add('hidden');
     resultsGrid.classList.remove('hidden');
+  }
+}
+
+function showLoadMoreIndicator() {
+  let indicator = document.getElementById('loadMoreIndicator');
+  if (!indicator) {
+    indicator = document.createElement('div');
+    indicator.id = 'loadMoreIndicator';
+    indicator.className = 'load-more-indicator';
+    indicator.innerHTML = '<div class="spinner"></div><p>Loading more videos...</p>';
+    resultsGrid.appendChild(indicator);
+  }
+  indicator.classList.remove('hidden');
+}
+
+function hideLoadMoreIndicator() {
+  const indicator = document.getElementById('loadMoreIndicator');
+  if (indicator) {
+    indicator.classList.add('hidden');
   }
 }
 

@@ -10,11 +10,11 @@ function validateSearchQuery(query) {
 }
 
 contextBridge.exposeInMainWorld('api', {
-  searchVideos: (query) => {
+  searchVideos: (query, limit = 50) => {
     if (!validateSearchQuery(query)) {
       return Promise.reject(new Error('Invalid search query'));
     }
-    return ipcRenderer.invoke('search-videos', query);
+    return ipcRenderer.invoke('search-videos', query, limit);
   },
   getVideoUrl: (videoId) => {
     if (!validateVideoId(videoId)) {
