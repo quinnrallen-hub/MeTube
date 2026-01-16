@@ -9,7 +9,9 @@
   },
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
+    "start": "electron . --enable-features=UseOzonePlatform,WaylandWindowDecorations --ozone-platform=wayland --enable-wayland-ime --disable-features=WaylandFractionalScaleV1 --log-level=3 2>&1 | grep -v 'wayland_wp_image_description'",
+    "start:x11": "electron .",
+    "start:debug": "electron . --enable-features=UseOzonePlatform,WaylandWindowDecorations --ozone-platform=wayland --enable-wayland-ime --disable-features=WaylandFractionalScaleV1",
     "build": "electron-builder",
     "build:linux": "electron-builder --linux",
     "build:appimage": "electron-builder --linux AppImage",

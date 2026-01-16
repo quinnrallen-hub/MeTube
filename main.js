@@ -25,7 +25,12 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js')
     },
     backgroundColor: '#0f0f0f',
-    title: 'MeTube - Better YouTube'
+    title: 'MeTube - Better YouTube',
+    // Hyprland/Wayland optimizations
+    autoHideMenuBar: true,
+    frame: true,
+    transparent: false,
+    hasShadow: true
   });
 
   mainWindow.loadFile('index.html');
@@ -34,6 +39,9 @@ function createWindow() {
   if (process.env.NODE_ENV === 'development') {
     mainWindow.webContents.openDevTools();
   }
+
+  // Prevent menu bar from showing on Alt key in Hyprland
+  mainWindow.setMenuBarVisibility(false);
 }
 
 app.whenReady().then(() => {
