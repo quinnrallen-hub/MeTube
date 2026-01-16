@@ -92,27 +92,33 @@ if (loadMoreBtn) {
   });
 }
 
-// Infinite scroll listener - more aggressive detection
+// Infinite scroll listener - listen on the correct scrolling element!
+const contentArea = document.querySelector('.content');
 let scrollTimeout;
-resultsContainer.addEventListener('scroll', () => {
-  clearTimeout(scrollTimeout);
-  scrollTimeout = setTimeout(() => {
-    if (!currentSearchQuery || !nextPageToken || isLoadingMore) return;
 
-    const { scrollTop, scrollHeight, clientHeight } = resultsContainer;
-    const scrollPercentage = (scrollTop / (scrollHeight - clientHeight)) * 100;
-    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+if (contentArea) {
+  contentArea.addEventListener('scroll', () => {
+    clearTimeout(scrollTimeout);
+    scrollTimeout = setTimeout(() => {
+      if (!currentSearchQuery || !nextPageToken || isLoadingMore) return;
 
-    // Trigger when scrolled 70% or within 800px of bottom
-    if ((scrollPercentage > 70 || distanceFromBottom < 800) && nextPageToken && !isLoadingMore) {
-      console.log('Auto-loading more videos...', {
-        scrollPercentage: scrollPercentage.toFixed(1) + '%',
-        distanceFromBottom: distanceFromBottom + 'px'
-      });
-      loadMoreResults();
-    }
-  }, 50); // Faster debounce
-});
+      const { scrollTop, scrollHeight, clientHeight } = contentArea;
+      const scrollPercentage = (scrollTop / (scrollHeight - clientHeight)) * 100;
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+
+      // Trigger when scrolled 70% or within 800px of bottom
+      if ((scrollPercentage > 70 || distanceFromBottom < 800) && nextPageToken && !isLoadingMore) {
+        console.log('Auto-loading more videos...', {
+          scrollPercentage: scrollPercentage.toFixed(1) + '%',
+          distanceFromBottom: distanceFromBottom + 'px'
+        });
+        loadMoreResults();
+      }
+    }, 50); // Faster debounce
+  });
+} else {
+  console.error('Content area not found for scroll listener!');
+}
 
 backBtn.addEventListener('click', () => {
   // Cancel any pending video request
