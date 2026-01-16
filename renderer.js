@@ -742,7 +742,8 @@ async function viewChannel(channelId, channelName) {
   try {
     // Search for videos from this channel
     const channelQuery = channelName || channelId;
-    const results = await window.api.searchVideos(channelQuery);
+    const response = await window.api.searchVideos(channelQuery);
+    const results = response.items || [];
 
     // Filter to show only videos from this channel (best effort)
     const channelVideos = results.filter(video => {
@@ -800,7 +801,7 @@ async function switchView(view) {
       if (view === 'trending') {
         sectionTitle.textContent = 'Trending Now';
         const trendingResults = await loadTrendingContent();
-        displayResults(trendingResults);
+        displayResults(trendingResults || []);
       } else if (view === 'subscriptions') {
         await loadSubscriptions();
       } else if (view === 'history') {
@@ -825,7 +826,8 @@ async function loadSmartHomeFeed() {
   loadWatchHistory();
 
   // Just load trending for speed - users can use categories for personalization
-  const trending = await loadTrendingContent();
+  const trendingResponse = await loadTrendingContent();
+  const trending = trendingResponse.items || trendingResponse || [];
   displayResults(trending.slice(0, 12)); // Limit to 12 videos for speed
 }
 
@@ -843,7 +845,8 @@ async function getPersonalizedRecommendations() {
 
   for (const keyword of keywords.slice(0, 3)) {
     try {
-      const results = await window.api.searchVideos(keyword);
+      const response = await window.api.searchVideos(keyword);
+      const results = response.items || [];
       allResults.push(...results.slice(0, 5));
     } catch (error) {
       console.error('Error fetching recommendations:', error);
@@ -914,8 +917,8 @@ async function loadTrendingContent() {
   const randomCategory = categories[Math.floor(Math.random() * categories.length)];
 
   try {
-    const results = await window.api.searchVideos(randomCategory);
-    return results || [];
+    const response = await window.api.searchVideos(randomCategory);
+    return response.items || [];
   } catch (error) {
     console.error('Error loading trending:', error);
     return [];
@@ -1152,7 +1155,8 @@ async function selectCategory(categoryName) {
   if (category.name === 'All') {
     await loadSmartHomeFeed();
   } else {
-    const results = await window.api.searchVideos(category.query);
+    const response = await window.api.searchVideos(category.query);
+    const results = response.items || [];
     const filtered = results.filter(item => item.type === 'video' || item.type === 'shorts');
     displayResults(filtered.slice(0, 12)); // Limit to 12 videos for speed
   }
@@ -1211,7 +1215,8 @@ async function loadShorts() {
   showLoading();
   try {
     // Single search for speed
-    const results = await window.api.searchVideos('#shorts');
+    const response = await window.api.searchVideos('#shorts');
+    const results = response.items || [];
 
     // Filter for short videos (under 60 seconds)
     shortsData = results.filter(item =>
