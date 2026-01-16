@@ -66,6 +66,12 @@
               </svg>
               <span>History</span>
             </button>
+            <button class="nav-item" data-view="liked">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+              </svg>
+              <span>Liked Videos</span>
+            </button>
             <button class="nav-item" data-view="playlists">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
@@ -88,15 +94,48 @@
             <div class="player-wrapper">
               <div class="video-container">
                 <video id="videoElement" controls></video>
+                <!-- Video loading overlay -->
+                <div id="videoLoadingOverlay" class="video-loading-overlay hidden">
+                  <div class="video-loading-spinner"></div>
+                  <p>Fetching video...</p>
+                </div>
                 <div class="video-controls">
-                  <select id="qualitySelector" class="quality-selector">
+                  <select id="qualitySelector" class="quality-selector" title="Video Quality">
                     <option value="highest">Auto (Best Quality)</option>
                     <option value="1080p">1080p</option>
                     <option value="720p">720p</option>
                     <option value="480p">480p</option>
                     <option value="360p">360p</option>
                   </select>
-                  <button id="pipBtn" class="control-btn" title="Picture-in-Picture">PiP</button>
+                  <select id="speedSelector" class="quality-selector" title="Playback Speed">
+                    <option value="0.25">0.25x</option>
+                    <option value="0.5">0.5x</option>
+                    <option value="0.75">0.75x</option>
+                    <option value="1" selected>Normal</option>
+                    <option value="1.25">1.25x</option>
+                    <option value="1.5">1.5x</option>
+                    <option value="1.75">1.75x</option>
+                    <option value="2">2x</option>
+                  </select>
+                  <button id="loopBtn" class="control-btn" title="Loop Video">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M17 1l4 4-4 4"></path>
+                      <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                      <path d="M7 23l-4-4 4-4"></path>
+                      <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+                    </svg>
+                  </button>
+                  <button id="theaterBtn" class="control-btn" title="Theater Mode">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="2" y="7" width="20" height="10" rx="2" ry="2"></rect>
+                    </svg>
+                  </button>
+                  <button id="pipBtn" class="control-btn" title="Picture-in-Picture">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M19 11h-8v6h8v-6z"></path>
+                      <rect x="2" y="3" width="20" height="18" rx="2" ry="2"></rect>
+                    </svg>
+                  </button>
                 </div>
               </div>
 
@@ -123,6 +162,16 @@
                       </svg>
                       <span>Save</span>
                     </button>
+                    <button id="shareBtn" class="action-btn-icon">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="18" cy="5" r="3"></circle>
+                        <circle cx="6" cy="12" r="3"></circle>
+                        <circle cx="18" cy="19" r="3"></circle>
+                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                      </svg>
+                      <span>Share</span>
+                    </button>
                     <button id="downloadBtn" class="action-btn-icon">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path>
@@ -138,23 +187,11 @@
                   </div>
                 </div>
 
-                <!-- Tabs -->
-                <div class="tabs">
-                  <button class="tab active" data-tab="description">Description</button>
-                  <button class="tab" data-tab="comments">Comments</button>
-                </div>
-
-                <!-- Tab Content -->
-                <div class="tab-content">
-                  <div id="descriptionTab" class="tab-panel active">
-                    <div id="videoDescription" class="video-description">
-                      <p>Loading description...</p>
-                    </div>
-                  </div>
-                  <div id="commentsTab" class="tab-panel hidden">
-                    <div id="commentsSection" class="comments-section">
-                      <p>Loading comments...</p>
-                    </div>
+                <!-- Description Section (Comments removed - not supported) -->
+                <div class="video-description-section">
+                  <h3 style="margin-bottom: 1rem; font-size: 1.125rem;">Description</h3>
+                  <div id="videoDescription" class="video-description">
+                    <p>Loading description...</p>
                   </div>
                 </div>
               </div>

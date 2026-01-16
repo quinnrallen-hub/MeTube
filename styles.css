@@ -1237,3 +1237,85 @@ video {
     font-size: 20px;
   }
 }
+
+/* Video Loading Overlay */
+.video-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  color: white;
+}
+
+.video-loading-spinner {
+  width: 60px;
+  height: 60px;
+  border: 4px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #ff0000;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 1rem;
+}
+
+.video-loading-overlay p {
+  font-size: 1.125rem;
+  font-weight: 500;
+}
+
+/* Theater Mode */
+.video-player.theater-mode {
+  max-width: 100%;
+}
+
+.video-player.theater-mode .video-container {
+  max-height: 85vh;
+}
+
+.video-player.theater-mode #videoElement {
+  max-height: 85vh;
+}
+
+.control-btn.active {
+  background-color: var(--accent-color);
+  color: white;
+}
+
+/* Video Progress Indicator */
+.video-card .progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 4px;
+  background-color: #ff0000;
+  transition: width 0.3s ease;
+}
+
+/* Toast Notifications */
+@keyframes slideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+}

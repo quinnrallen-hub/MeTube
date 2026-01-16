@@ -8,18 +8,6 @@ let watchHistory = [];
 let likedVideos = new Set();
 let theme = 'dark';
 
-// Request cancellation for video loading
-let currentVideoRequest = null;
-
-// Track event listeners for cleanup
-const eventListeners = new Map();
-
-// Video player state
-let currentQuality = 'highest';
-let playbackSpeed = 1.0;
-let isTheaterMode = false;
-let videoProgress = {}; // Track watch progress {videoId: {progress: 0-100, timestamp}}
-
 // DOM Elements
 const searchInput = document.getElementById('searchInput');
 const searchBtn = document.getElementById('searchBtn');
@@ -38,14 +26,9 @@ const resultsContainer = document.getElementById('resultsContainer');
 const themeToggle = document.getElementById('themeToggle');
 const pipBtn = document.getElementById('pipBtn');
 const qualitySelector = document.getElementById('qualitySelector');
-const speedSelector = document.getElementById('speedSelector');
-const loopBtn = document.getElementById('loopBtn');
-const theaterBtn = document.getElementById('theaterBtn');
-const shareBtn = document.getElementById('shareBtn');
 const likeBtn = document.getElementById('likeBtn');
 const subscribeBtn = document.getElementById('subscribeBtn');
 const addToPlaylistBtn = document.getElementById('addToPlaylistBtn');
-const videoLoadingOverlay = document.getElementById('videoLoadingOverlay');
 
 // Shorts elements
 const shortsViewer = document.getElementById('shortsViewer');
@@ -71,6 +54,10 @@ const categories = [
 ];
 let activeCategory = 'All';
 
+// Tab elements
+const tabs = document.querySelectorAll('.tab');
+const tabPanels = document.querySelectorAll('.tab-panel');
+
 // Event Listeners
 searchBtn.addEventListener('click', performSearch);
 searchInput.addEventListener('keypress', (e) => {
@@ -78,23 +65,10 @@ searchInput.addEventListener('keypress', (e) => {
 });
 
 backBtn.addEventListener('click', () => {
-  // Cancel any pending video request
-  if (currentVideoRequest) {
-    currentVideoRequest.cancelled = true;
-    currentVideoRequest = null;
-  }
-
-  // Properly cleanup video element to prevent memory leaks
-  videoElement.pause();
-  videoElement.removeAttribute('src');
-  videoElement.load(); // This releases the video blob from memory
-
-  // Clear current video state
-  currentVideo = null;
-
-  // Show results
   videoPlayer.classList.add('hidden');
   resultsContainer.classList.remove('hidden');
+  videoElement.pause();
+  videoElement.src = '';
 });
 
 downloadBtn.addEventListener('click', async () => {
@@ -194,100 +168,12 @@ addToPlaylistBtn.addEventListener('click', () => {
   }
 });
 
-// Quality selector
-qualitySelector.addEventListener('change', async (e) => {
-  if (!currentVideo) return;
-
-  currentQuality = e.target.value;
-  const currentTime = videoElement.currentTime;
-  const wasPlaying = !videoElement.paused;
-
-  showNotification(`Changing quality to ${currentQuality}...`);
-
-  try {
-    // Re-fetch video with new quality preference
-    const videoData = await window.api.getVideoUrl(currentVideo.id);
-    videoElement.src = videoData.url;
-    videoElement.currentTime = currentTime;
-
-    if (wasPlaying) {
-      await videoElement.play();
-    }
-
-    showNotification(`Quality changed to ${currentQuality}`);
-  } catch (error) {
-    showNotification('Failed to change quality', 'error');
-  }
-});
-
-// Playback speed selector
-speedSelector.addEventListener('change', (e) => {
-  playbackSpeed = parseFloat(e.target.value);
-  videoElement.playbackRate = playbackSpeed;
-  showNotification(`Speed: ${playbackSpeed}x`);
-});
-
-// Loop button
-loopBtn.addEventListener('click', () => {
-  videoElement.loop = !videoElement.loop;
-  loopBtn.classList.toggle('active');
-  showNotification(videoElement.loop ? 'Loop enabled' : 'Loop disabled');
-});
-
-// Theater mode button
-theaterBtn.addEventListener('click', () => {
-  isTheaterMode = !isTheaterMode;
-  videoPlayer.classList.toggle('theater-mode');
-  theaterBtn.classList.toggle('active');
-  showNotification(isTheaterMode ? 'Theater mode enabled' : 'Theater mode disabled');
-});
-
-// Share button
-shareBtn.addEventListener('click', async () => {
-  if (!currentVideo) return;
-
-  const url = `https://www.youtube.com/watch?v=${currentVideo.id}`;
-
-  try {
-    await navigator.clipboard.writeText(url);
-    showNotification('Link copied to clipboard!');
-  } catch (error) {
-    // Fallback for older browsers
-    const textarea = document.createElement('textarea');
-    textarea.value = url;
-    textarea.style.position = 'fixed';
-    textarea.style.opacity = '0';
-    document.body.appendChild(textarea);
-    textarea.select();
-    document.execCommand('copy');
-    document.body.removeChild(textarea);
-    showNotification('Link copied to clipboard!');
-  }
-});
-
 // Shorts close button
 shortsCloseBtn.addEventListener('click', () => {
   shortsViewer.classList.add('hidden');
   resultsContainer.classList.remove('hidden');
-
-  // FIX MEMORY LEAK: Properly cleanup all Short videos
-  document.querySelectorAll('.short-video').forEach(v => {
-    v.pause();
-
-    // Remove all event listeners for this video
-    const listeners = eventListeners.get(v);
-    if (listeners) {
-      listeners.forEach(({ event, handler }) => {
-        v.removeEventListener(event, handler);
-      });
-      eventListeners.delete(v);
-    }
-
-    // Clear video source to release memory
-    v.removeAttribute('src');
-    v.load();
-  });
-
+  // Pause all Short videos
+  document.querySelectorAll('.short-video').forEach(v => v.pause());
   // Remove keyboard listener
   document.removeEventListener('keydown', handleShortsKeyboard);
 });
@@ -300,111 +186,6 @@ volumeToggle.addEventListener('click', () => {
     currentVideo.muted = isMuted;
   }
   updateVolumeIcon();
-});
-
-// Keyboard shortcuts for main video player
-document.addEventListener('keydown', (e) => {
-  // Skip if user is typing in an input
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
-    return;
-  }
-
-  // Only activate shortcuts when video player is visible
-  if (!videoPlayer.classList.contains('hidden')) {
-    switch(e.key.toLowerCase()) {
-      case ' ':
-      case 'k':
-        e.preventDefault();
-        if (videoElement.paused) {
-          videoElement.play();
-        } else {
-          videoElement.pause();
-        }
-        break;
-
-      case 'f':
-        e.preventDefault();
-        if (!document.fullscreenElement) {
-          videoElement.requestFullscreen().catch(err => console.log(err));
-        } else {
-          document.exitFullscreen();
-        }
-        break;
-
-      case 't':
-        e.preventDefault();
-        theaterBtn.click();
-        break;
-
-      case 'm':
-        e.preventDefault();
-        videoElement.muted = !videoElement.muted;
-        showNotification(videoElement.muted ? 'Muted' : 'Unmuted');
-        break;
-
-      case 'l':
-        e.preventDefault();
-        loopBtn.click();
-        break;
-
-      case 'arrowleft':
-      case 'j':
-        e.preventDefault();
-        videoElement.currentTime = Math.max(0, videoElement.currentTime - 10);
-        break;
-
-      case 'arrowright':
-      case 'l':
-        e.preventDefault();
-        videoElement.currentTime = Math.min(videoElement.duration, videoElement.currentTime + 10);
-        break;
-
-      case 'arrowup':
-        e.preventDefault();
-        videoElement.volume = Math.min(1, videoElement.volume + 0.1);
-        showNotification(`Volume: ${Math.round(videoElement.volume * 100)}%`);
-        break;
-
-      case 'arrowdown':
-        e.preventDefault();
-        videoElement.volume = Math.max(0, videoElement.volume - 0.1);
-        showNotification(`Volume: ${Math.round(videoElement.volume * 100)}%`);
-        break;
-
-      case 'escape':
-        e.preventDefault();
-        if (document.fullscreenElement) {
-          document.exitFullscreen();
-        } else {
-          backBtn.click();
-        }
-        break;
-
-      case '0': case '1': case '2': case '3': case '4':
-      case '5': case '6': case '7': case '8': case '9':
-        e.preventDefault();
-        const percent = parseInt(e.key) / 10;
-        videoElement.currentTime = videoElement.duration * percent;
-        showNotification(`Jumped to ${e.key}0%`);
-        break;
-
-      case '>':
-      case '.':
-        e.preventDefault();
-        const newSpeed = Math.min(2, playbackSpeed + 0.25);
-        speedSelector.value = newSpeed;
-        speedSelector.dispatchEvent(new Event('change'));
-        break;
-
-      case '<':
-      case ',':
-        e.preventDefault();
-        const lowerSpeed = Math.max(0.25, playbackSpeed - 0.25);
-        speedSelector.value = lowerSpeed;
-        speedSelector.dispatchEvent(new Event('change'));
-        break;
-    }
-  }
 });
 
 // Keyboard navigation for Shorts
@@ -479,6 +260,24 @@ document.querySelectorAll('.nav-item').forEach(item => {
   });
 });
 
+// Tab switching
+tabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    const tabName = tab.getAttribute('data-tab');
+
+    tabs.forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+
+    tabPanels.forEach(panel => panel.classList.add('hidden'));
+    document.getElementById(tabName + 'Tab').classList.remove('hidden');
+
+    // Load comments when comments tab is clicked
+    if (tabName === 'comments' && currentVideo) {
+      loadComments(currentVideo.id);
+    }
+  });
+});
+
 // Functions
 async function performSearch() {
   const query = searchInput.value.trim();
@@ -527,29 +326,23 @@ function createVideoCard(item) {
   const duration = item.length?.simpleText || item.lengthText || '';
   const videoId = item.id;
 
-  // Extract views and publish date - ESCAPE ALL USER DATA
+  // Extract views and publish date
   const views = item.viewCount?.text || item.viewCountText || '';
   const publishedTime = item.publishedTimeText || item.publishTime || '';
 
-  // Check if video has watch progress
-  const progress = videoProgress[videoId];
-  const progressPercent = progress && progress.progress > 0 && progress.progress < 95 ? progress.progress : 0;
-
-  // FIX XSS: Escape all data before inserting into innerHTML
   card.innerHTML = `
     <div class="thumbnail-container ${isShort ? 'short-thumbnail' : ''}">
-      <img src="${escapeHtml(thumbnail)}" alt="${escapeHtml(title)}" class="thumbnail" loading="lazy">
-      ${duration ? `<span class="duration">${escapeHtml(duration)}</span>` : ''}
+      <img src="${thumbnail}" alt="${title}" class="thumbnail" loading="lazy">
+      ${duration ? `<span class="duration">${duration}</span>` : ''}
       ${isShort ? '<span class="short-badge">Short</span>' : ''}
-      ${progressPercent > 0 ? `<div class="progress-bar" style="width: ${progressPercent}%"></div>` : ''}
     </div>
     <div class="video-info-card">
       <h3 class="video-title-card">${escapeHtml(title)}</h3>
       <p class="channel-name">${escapeHtml(channelName)}</p>
       <div class="video-metadata">
-        ${views ? `<span class="views">${escapeHtml(views)}</span>` : ''}
+        ${views ? `<span class="views">${views}</span>` : ''}
         ${views && publishedTime ? '<span class="separator">•</span>' : ''}
-        ${publishedTime ? `<span class="published-time">${escapeHtml(publishedTime)}</span>` : ''}
+        ${publishedTime ? `<span class="published-time">${publishedTime}</span>` : ''}
       </div>
     </div>
   `;
@@ -560,62 +353,19 @@ function createVideoCard(item) {
 }
 
 async function playVideo(videoId, videoInfo) {
-  // Cancel previous video request if any
-  if (currentVideoRequest) {
-    currentVideoRequest.cancelled = true;
-  }
-
-  // Create new request tracker
-  const requestToken = { cancelled: false };
-  currentVideoRequest = requestToken;
-
   showLoading();
   resultsContainer.classList.add('hidden');
-  videoPlayer.classList.remove('hidden');
-
-  // Show video loading overlay
-  videoLoadingOverlay.classList.remove('hidden');
 
   try {
     const videoData = await window.api.getVideoUrl(videoId);
-
-    // Check if this request was cancelled
-    if (requestToken.cancelled) {
-      console.log('Video request was cancelled');
-      videoLoadingOverlay.classList.add('hidden');
-      return;
-    }
-
     currentVideo = { id: videoId, ...videoData, ...videoInfo };
 
     videoElement.src = videoData.url;
     videoTitle.textContent = videoData.title;
     videoUploader.textContent = videoData.uploader;
 
-    // Resume from saved progress if available
-    const savedProgress = videoProgress[videoId];
-    if (savedProgress && savedProgress.progress > 0 && savedProgress.progress < 95) {
-      videoElement.currentTime = (savedProgress.progress / 100) * videoData.duration;
-      showNotification(`Resuming from ${Math.round(savedProgress.progress)}%`);
-    }
-
-    // Track watch progress
-    videoElement.addEventListener('timeupdate', () => {
-      if (videoElement.duration) {
-        const progress = (videoElement.currentTime / videoElement.duration) * 100;
-        videoProgress[videoId] = {
-          progress,
-          timestamp: Date.now(),
-          duration: videoElement.duration
-        };
-        saveVideoProgress();
-      }
-    });
-
-    // FIX XSS: Escape description content before inserting
-    // Convert newlines to <br> tags safely
-    const safeDescription = escapeHtml(videoData.description || '').replace(/\n/g, '<br>');
-    videoDescription.innerHTML = safeDescription ||
+    // Load description (using available data)
+    videoDescription.innerHTML = videoData.description ||
       `<p><strong>Title:</strong> ${escapeHtml(videoData.title)}</p>
        <p><strong>Uploader:</strong> ${escapeHtml(videoData.uploader)}</p>
        <p><strong>Duration:</strong> ${formatDuration(videoData.duration)}</p>`;
@@ -635,11 +385,7 @@ async function playVideo(videoId, videoInfo) {
       subscribeBtn.classList.remove('subscribed');
     }
 
-    // Hide loading overlay once video is ready
-    videoElement.addEventListener('loadeddata', () => {
-      videoLoadingOverlay.classList.add('hidden');
-    }, { once: true });
-
+    videoPlayer.classList.remove('hidden');
     videoElement.play();
 
     // Add to history
@@ -648,14 +394,16 @@ async function playVideo(videoId, videoInfo) {
     console.error('Play error:', error);
     const errorMsg = error.message || 'Failed to load video. Please try again.';
     showNotification(errorMsg, 'error');
-    videoLoadingOverlay.classList.add('hidden');
     backBtn.click();
   }
 
   hideLoading();
 }
 
-// Comments removed - not supported in this version
+async function loadComments(videoId) {
+  commentsSection.innerHTML = '<p>Comments are not available in this version.</p>';
+  // In a full implementation, you would fetch comments from the YouTube API
+}
 
 async function switchView(view) {
   currentView = view;
@@ -692,12 +440,8 @@ async function switchView(view) {
         await loadSubscriptions();
       } else if (view === 'history') {
         await loadHistory();
-      } else if (view === 'liked') {
-        await loadLikedVideos();
       } else if (view === 'playlists') {
         await loadPlaylists();
-      } else if (view === 'shorts') {
-        await loadShorts();
       }
     }
 
@@ -839,32 +583,7 @@ async function loadHistory() {
     return;
   }
 
-  resultsGrid.innerHTML = '';
-  watchHistory.slice().reverse().forEach(item => {
-    const card = createVideoCard(item);
-    resultsGrid.appendChild(card);
-  });
-}
-
-async function loadLikedVideos() {
-  sectionTitle.textContent = 'Liked Videos';
-  loadLikedVideosData();
-
-  if (likedVideos.size === 0) {
-    resultsGrid.innerHTML = '<p class="no-results">No liked videos yet. Like videos while watching!</p>';
-    return;
-  }
-
-  // Filter watch history to show only liked videos
-  const likedVideosList = watchHistory.filter(video => likedVideos.has(video.id));
-
-  if (likedVideosList.length === 0) {
-    resultsGrid.innerHTML = '<p class="no-results">No liked videos in your watch history yet.</p>';
-    return;
-  }
-
-  resultsGrid.innerHTML = '';
-  likedVideosList.slice().reverse().forEach(item => {
+  watchHistory.reverse().forEach(item => {
     const card = createVideoCard(item);
     resultsGrid.appendChild(card);
   });
@@ -946,7 +665,7 @@ function saveLikedVideos() {
   localStorage.setItem('likedVideos', JSON.stringify([...likedVideos]));
 }
 
-function loadLikedVideosData() {
+function loadLikedVideos() {
   const saved = localStorage.getItem('likedVideos');
   if (saved) {
     likedVideos = new Set(JSON.parse(saved));
@@ -958,21 +677,9 @@ function savePlaylists() {
 }
 
 function loadPlaylistsData() {
-  // FIX BUG: Was using setItem instead of getItem
-  const saved = localStorage.getItem('playlists');
+  const saved = localStorage.setItem('playlists');
   if (saved) {
     playlists = JSON.parse(saved);
-  }
-}
-
-function saveVideoProgress() {
-  localStorage.setItem('videoProgress', JSON.stringify(videoProgress));
-}
-
-function loadVideoProgress() {
-  const saved = localStorage.getItem('videoProgress');
-  if (saved) {
-    videoProgress = JSON.parse(saved);
   }
 }
 
@@ -1029,32 +736,8 @@ async function selectCategory(categoryName) {
 }
 
 function showNotification(message, type = 'success') {
-  // Create a better toast notification instead of alert()
-  const notification = document.createElement('div');
-  notification.className = `toast-notification toast-${type}`;
-  notification.textContent = message;
-  notification.style.cssText = `
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    background: ${type === 'error' ? '#f44336' : '#4caf50'};
-    color: white;
-    padding: 16px 24px;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    z-index: 10000;
-    animation: slideIn 0.3s ease;
-    max-width: 400px;
-    word-wrap: break-word;
-  `;
-
-  document.body.appendChild(notification);
-
-  // Auto remove after 4 seconds
-  setTimeout(() => {
-    notification.style.animation = 'slideOut 0.3s ease';
-    setTimeout(() => notification.remove(), 300);
-  }, 4000);
+  // Simple alert for now
+  alert(message);
 }
 
 function escapeHtml(text) {
@@ -1185,31 +868,18 @@ async function loadShortVideo(index) {
     video.muted = isMuted;
     loadingEl.style.display = 'none';
 
-    // FIX MEMORY LEAK: Store event listeners so they can be cleaned up
-    // Create named functions for event listeners
-    const handleTimeUpdate = () => {
+    // Update progress bar
+    video.addEventListener('timeupdate', () => {
       const progress = (video.currentTime / video.duration) * 100;
       progressBar.style.width = `${progress}%`;
-    };
+    });
 
-    const handleClick = () => {
+    // Click to toggle mute
+    video.addEventListener('click', () => {
       isMuted = !isMuted;
       video.muted = isMuted;
       updateVolumeIcon();
-    };
-
-    // Add listeners and store references for cleanup
-    video.addEventListener('timeupdate', handleTimeUpdate);
-    video.addEventListener('click', handleClick);
-
-    // Store cleanup function for this video element
-    if (!eventListeners.has(video)) {
-      eventListeners.set(video, []);
-    }
-    eventListeners.get(video).push(
-      { event: 'timeupdate', handler: handleTimeUpdate },
-      { event: 'click', handler: handleClick }
-    );
+    });
 
     // Auto-play
     await video.play().catch(e => {
@@ -1266,9 +936,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // Load saved data
   loadWatchHistory();
-  loadLikedVideosData();
+  loadLikedVideos();
   loadPlaylistsData();
-  loadVideoProgress();
 
   // Load subscriptions from electron-store
   subscriptions = await window.api.getSubscriptions();

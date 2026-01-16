@@ -1,12 +1,15 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const Store = require('electron-store').default;
-const { exec } = require('child_process');
-const { promisify } = require('util');
+const ytdl = require('@distube/ytdl-core');
 const ytsr = require('youtube-search-api');
+const fs = require('fs');
 
-const execAsync = promisify(exec);
 const store = new Store();
+
+// Video URL cache to prevent refetching
+const videoCache = new Map();
+const CACHE_DURATION = 1000 * 60 * 60; // 1 hour
 
 let mainWindow;
 
@@ -17,14 +20,20 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
+      webSecurity: true,
       preload: path.join(__dirname, 'preload.js')
     },
     backgroundColor: '#0f0f0f',
-    title: 'YouTube Client - Ad Free'
+    title: 'MeTube - Better YouTube'
   });
 
   mainWindow.loadFile('index.html');
-  mainWindow.webContents.openDevTools(); // Remove this in production
+
+  // Only open dev tools in development mode
+  if (process.env.NODE_ENV === 'development') {
+    mainWindow.webContents.openDevTools();
+  }
 }
 
 app.whenReady().then(() => {
@@ -39,9 +48,37 @@ app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
 });
 
+// Input validation helpers
+function validateVideoId(videoId) {
+  if (typeof videoId !== 'string') return false;
+  // YouTube video IDs are 11 characters, alphanumeric with - and _
+  return /^[a-zA-Z0-9_-]{11}$/.test(videoId);
+}
+
+function validateSearchQuery(query) {
+  if (typeof query !== 'string') return false;
+  // Max 200 characters, prevent injection
+  return query.length > 0 && query.length <= 200;
+}
+
+function sanitizeFilename(filename) {
+  // Remove all path traversal patterns and dangerous characters
+  return filename
+    .replace(/\.\./g, '') // Remove ..
+    .replace(/[/\\?%*:|"<>]/g, '-') // Remove path separators and special chars
+    .replace(/^\.+/, '') // Remove leading dots
+    .substring(0, 200); // Limit length
+}
+
 // IPC Handlers
 ipcMain.handle('search-videos', async (event, query) => {
   try {
+    // Validate input
+    if (!validateSearchQuery(query)) {
+      console.error('Invalid search query');
+      return [];
+    }
+
     const results = await ytsr.GetListByKeyword(query, false, 20);
     return results.items.filter(item => item.type === 'video' || item.type === 'shorts');
   } catch (error) {
@@ -52,60 +89,104 @@ ipcMain.handle('search-videos', async (event, query) => {
 
 ipcMain.handle('get-video-url', async (event, videoId) => {
   try {
+    // Validate video ID to prevent injection
+    if (!validateVideoId(videoId)) {
+      throw new Error('Invalid video ID format');
+    }
+
     const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
     console.log('Fetching video:', videoId);
 
-    // Use yt-dlp to get video info and URL
-    // -f 18 = 360p MP4 with audio+video combined (most compatible)
-    const { stdout } = await execAsync(
-      `yt-dlp -f "18/best[ext=mp4][vcodec!=none][acodec!=none]/best" --get-title --get-url --get-thumbnail --get-duration --get-description "${videoUrl}"`,
-      { maxBuffer: 1024 * 1024 * 10 }
-    );
-
-    const lines = stdout.trim().split('\n');
-
-    if (lines.length < 2) {
-      throw new Error('Invalid response from yt-dlp');
+    // Check cache first
+    const cached = videoCache.get(videoId);
+    if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+      console.log('Returning cached video data');
+      return cached.data;
     }
 
-    // yt-dlp output format: title, url, thumbnail, duration, description
-    const [title, url, thumbnail = '', duration = '0', ...descriptionLines] = lines;
-    const description = descriptionLines.join('\n');
+    // Use ytdl-core instead of exec (NO COMMAND INJECTION!)
+    const info = await ytdl.getInfo(videoUrl);
 
-    console.log('Video fetched successfully:', title);
-    console.log('Video URL:', url);
+    // Get the best format with both audio and video
+    const format = ytdl.chooseFormat(info.formats, {
+      quality: 'highestaudio',
+      filter: format => format.hasVideo && format.hasAudio
+    });
 
-    return {
-      url: url.trim(),
-      title: title.trim(),
-      thumbnail: thumbnail.trim(),
-      duration: duration.trim(),
-      uploader: 'YouTube',
-      description: description.trim()
+    if (!format || !format.url) {
+      throw new Error('No suitable video format found');
+    }
+
+    const videoData = {
+      url: format.url,
+      title: info.videoDetails.title || 'Unknown Title',
+      thumbnail: info.videoDetails.thumbnails?.[0]?.url || '',
+      duration: info.videoDetails.lengthSeconds || '0',
+      uploader: info.videoDetails.author?.name || 'YouTube',
+      description: info.videoDetails.description || ''
     };
+
+    // Cache the result
+    videoCache.set(videoId, {
+      data: videoData,
+      timestamp: Date.now()
+    });
+
+    console.log('Video fetched successfully:', videoData.title);
+
+    return videoData;
   } catch (error) {
     console.error('Video URL error:', error.message);
-    console.error('Full error:', error);
     throw new Error(`Failed to load video: ${error.message}`);
   }
 });
 
 ipcMain.handle('download-video', async (event, videoId, quality = 'best') => {
   try {
+    // Validate video ID
+    if (!validateVideoId(videoId)) {
+      throw new Error('Invalid video ID format');
+    }
+
     const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
-    // Get video title first
-    const { stdout: titleOutput } = await execAsync(`yt-dlp --get-title "${videoUrl}"`);
-    const sanitizedTitle = titleOutput.trim().replace(/[/\\?%*:|"<>]/g, '-');
+    // Get video info using ytdl-core (NO EXEC!)
+    const info = await ytdl.getInfo(videoUrl);
+    const title = info.videoDetails.title || 'video';
+
+    // Properly sanitize filename to prevent path traversal
+    const sanitizedTitle = sanitizeFilename(title);
     const outputPath = path.join(app.getPath('downloads'), `${sanitizedTitle}.mp4`);
 
-    // Download video using yt-dlp
-    await execAsync(
-      `yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" -o "${outputPath}" "${videoUrl}"`,
-      { maxBuffer: 1024 * 1024 * 100 }
-    );
+    // Ensure we're not writing outside downloads directory
+    const downloadsDir = app.getPath('downloads');
+    const resolvedPath = path.resolve(outputPath);
+    if (!resolvedPath.startsWith(downloadsDir)) {
+      throw new Error('Invalid output path');
+    }
 
-    return { success: true, path: outputPath };
+    // Download video stream
+    const format = ytdl.chooseFormat(info.formats, { quality: 'highestvideo' });
+    const stream = ytdl.downloadFromInfo(info, { format });
+    const writeStream = fs.createWriteStream(outputPath);
+
+    return new Promise((resolve, reject) => {
+      stream.pipe(writeStream);
+
+      writeStream.on('finish', () => {
+        resolve({ success: true, path: outputPath });
+      });
+
+      stream.on('error', (error) => {
+        console.error('Download stream error:', error);
+        reject(new Error(`Download failed: ${error.message}`));
+      });
+
+      writeStream.on('error', (error) => {
+        console.error('Write stream error:', error);
+        reject(new Error(`File write failed: ${error.message}`));
+      });
+    });
   } catch (error) {
     console.error('Download error:', error);
     return { success: false, error: error.message };

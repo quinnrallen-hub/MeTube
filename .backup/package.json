@@ -1,0 +1,70 @@
+{
+  "name": "youtube-client",
+  "version": "1.0.0",
+  "description": "Ad-free YouTube client for desktop",
+  "homepage": "https://github.com/quinnrallen-hub/youtube-client",
+  "author": {
+    "name": "Quinn Allen",
+    "email": "quinn@example.com"
+  },
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:linux": "electron-builder --linux",
+    "build:appimage": "electron-builder --linux AppImage",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "install-app": "./install.sh",
+    "uninstall-app": "./uninstall.sh"
+  },
+  "keywords": [
+    "youtube",
+    "electron",
+    "ad-free"
+  ],
+  "license": "MIT",
+  "type": "commonjs",
+  "build": {
+    "appId": "com.youtube.adfree.client",
+    "productName": "YouTube Ad-Free",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer.js",
+      "index.html",
+      "styles.css",
+      "node_modules/**/*"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Video"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ]
+    }
+  },
+  "dependencies": {
+    "@distube/ytdl-core": "^4.16.12",
+    "electron-store": "^11.0.2",
+    "youtube-search-api": "^2.0.1"
+  },
+  "devDependencies": {
+    "electron": "^39.2.7",
+    "electron-builder": "^26.0.12"
+  }
+}
