@@ -87,7 +87,9 @@ resultsContainer.addEventListener('scroll', () => {
   const { scrollTop, scrollHeight, clientHeight } = resultsContainer;
 
   // Load more when user is 300px from bottom
-  if (scrollHeight - scrollTop - clientHeight < 300) {
+  // Only works for search results (when we have a search query and nextPageToken)
+  if (scrollHeight - scrollTop - clientHeight < 300 && currentSearchQuery && nextPageToken) {
+    console.log('Triggering infinite scroll load...');
     loadMoreResults();
   }
 });
@@ -512,6 +514,11 @@ async function performSearch() {
     const response = await window.api.searchVideos(query, 50);
     searchResults = response.items || [];
     nextPageToken = response.nextPage;
+    console.log('Search complete:', {
+      resultCount: searchResults.length,
+      hasNextPage: !!nextPageToken,
+      nextPageToken: nextPageToken
+    });
     sectionTitle.textContent = `Search results for "${query}"`;
     displayResults(searchResults);
   } catch (error) {
@@ -524,20 +531,28 @@ async function performSearch() {
 
 // Load more results when scrolling
 async function loadMoreResults() {
-  if (isLoadingMore || !nextPageToken) return;
+  console.log('loadMoreResults called', {isLoadingMore, nextPageToken});
+  if (isLoadingMore || !nextPageToken) {
+    console.log('Skipping load - already loading or no token');
+    return;
+  }
 
   isLoadingMore = true;
   showLoadMoreIndicator();
+  console.log('Fetching next page...');
 
   try {
     const response = await window.api.loadNextPage(nextPageToken);
+    console.log('Got response:', response);
 
     if (response.items && response.items.length > 0) {
       searchResults = [...searchResults, ...response.items];
       appendResults(response.items);
       nextPageToken = response.nextPage;
+      console.log(`Loaded ${response.items.length} more videos. New token:`, nextPageToken);
     } else {
       nextPageToken = null;
+      console.log('No more results');
     }
   } catch (error) {
     console.error('Load more error:', error);
