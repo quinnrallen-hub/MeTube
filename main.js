@@ -84,14 +84,39 @@ ipcMain.handle('search-videos', async (event, query, limit = 50) => {
     // Validate input
     if (!validateSearchQuery(query)) {
       console.error('Invalid search query');
-      return [];
+      return { items: [], nextPage: null };
     }
 
     const results = await ytsr.GetListByKeyword(query, false, limit);
-    return results.items.filter(item => item.type === 'video' || item.type === 'shorts');
+    const items = results.items.filter(item => item.type === 'video' || item.type === 'shorts');
+
+    // Return both items and nextPage token for pagination
+    return {
+      items: items,
+      nextPage: results.nextPage || null
+    };
   } catch (error) {
     console.error('Search error:', error);
-    return [];
+    return { items: [], nextPage: null };
+  }
+});
+
+ipcMain.handle('load-next-page', async (event, nextPageData) => {
+  try {
+    if (!nextPageData) {
+      return { items: [], nextPage: null };
+    }
+
+    const results = await ytsr.NextPage(nextPageData, false, 30);
+    const items = results.items.filter(item => item.type === 'video' || item.type === 'shorts');
+
+    return {
+      items: items,
+      nextPage: results.nextPage || null
+    };
+  } catch (error) {
+    console.error('Load next page error:', error);
+    return { items: [], nextPage: null };
   }
 });
 

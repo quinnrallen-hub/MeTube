@@ -10,9 +10,8 @@ let theme = 'dark';
 
 // Infinite scroll state
 let currentSearchQuery = '';
-let currentPage = 1;
+let nextPageToken = null;
 let isLoadingMore = false;
-let hasMoreResults = true;
 
 // Request cancellation for video loading
 let currentVideoRequest = null;
@@ -502,8 +501,7 @@ async function performSearch() {
 
   // Reset pagination state for new search
   currentSearchQuery = query;
-  currentPage = 1;
-  hasMoreResults = true;
+  nextPageToken = null;
   searchResults = [];
 
   showLoading();
@@ -511,11 +509,11 @@ async function performSearch() {
   videoPlayer.classList.add('hidden');
 
   try {
-    const results = await window.api.searchVideos(query, 50);
-    searchResults = results;
+    const response = await window.api.searchVideos(query, 50);
+    searchResults = response.items || [];
+    nextPageToken = response.nextPage;
     sectionTitle.textContent = `Search results for "${query}"`;
     displayResults(searchResults);
-    currentPage++;
   } catch (error) {
     console.error('Search error:', error);
     resultsGrid.innerHTML = '<p class="error">Search failed. Please try again.</p>';
@@ -526,23 +524,24 @@ async function performSearch() {
 
 // Load more results when scrolling
 async function loadMoreResults() {
-  if (isLoadingMore || !hasMoreResults || !currentSearchQuery) return;
+  if (isLoadingMore || !nextPageToken) return;
 
   isLoadingMore = true;
   showLoadMoreIndicator();
 
   try {
-    const moreResults = await window.api.searchVideos(currentSearchQuery, 30);
+    const response = await window.api.loadNextPage(nextPageToken);
 
-    if (moreResults && moreResults.length > 0) {
-      searchResults = [...searchResults, ...moreResults];
-      appendResults(moreResults);
-      currentPage++;
+    if (response.items && response.items.length > 0) {
+      searchResults = [...searchResults, ...response.items];
+      appendResults(response.items);
+      nextPageToken = response.nextPage;
     } else {
-      hasMoreResults = false;
+      nextPageToken = null;
     }
   } catch (error) {
     console.error('Load more error:', error);
+    nextPageToken = null;
   }
 
   isLoadingMore = false;

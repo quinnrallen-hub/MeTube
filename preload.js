@@ -16,6 +16,9 @@ contextBridge.exposeInMainWorld('api', {
     }
     return ipcRenderer.invoke('search-videos', query, limit);
   },
+  loadNextPage: (nextPageData) => {
+    return ipcRenderer.invoke('load-next-page', nextPageData);
+  },
   getVideoUrl: (videoId) => {
     if (!validateVideoId(videoId)) {
       return Promise.reject(new Error('Invalid video ID'));
