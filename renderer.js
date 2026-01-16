@@ -92,21 +92,26 @@ if (loadMoreBtn) {
   });
 }
 
-// Infinite scroll listener with debouncing
+// Infinite scroll listener - more aggressive detection
 let scrollTimeout;
 resultsContainer.addEventListener('scroll', () => {
   clearTimeout(scrollTimeout);
   scrollTimeout = setTimeout(() => {
+    if (!currentSearchQuery || !nextPageToken || isLoadingMore) return;
+
     const { scrollTop, scrollHeight, clientHeight } = resultsContainer;
+    const scrollPercentage = (scrollTop / (scrollHeight - clientHeight)) * 100;
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
 
-    // Load more when user is 500px from bottom
-    // Only works for search results (when we have a search query and nextPageToken)
-    if (distanceFromBottom < 500 && currentSearchQuery && nextPageToken && !isLoadingMore) {
-      console.log('Triggering infinite scroll load...', {distanceFromBottom});
+    // Trigger when scrolled 70% or within 800px of bottom
+    if ((scrollPercentage > 70 || distanceFromBottom < 800) && nextPageToken && !isLoadingMore) {
+      console.log('Auto-loading more videos...', {
+        scrollPercentage: scrollPercentage.toFixed(1) + '%',
+        distanceFromBottom: distanceFromBottom + 'px'
+      });
       loadMoreResults();
     }
-  }, 100); // Debounce by 100ms
+  }, 50); // Faster debounce
 });
 
 backBtn.addEventListener('click', () => {
